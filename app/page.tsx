@@ -23,7 +23,8 @@ export default function Home(){
   function upload(index:number,e:ChangeEvent<HTMLInputElement>){const file=e.target.files?.[0];if(!file)return;const url=URL.createObjectURL(file);setVehicles(list=>list.map((v,i)=>i===index?{...v,video:url}:v));}
 
   return <main>
-    <nav className="nav"><a className="brand" href="#inicio"><span className="brand-mark">ET</span><span>EL TANQUE <b>MOTORS</b></span></a><div className="nav-links"><a href="#vehiculo">El vehículo</a><a href="#financiamiento">Financiamiento</a><a href="#contacto">Contacto</a></div></nav>
+    <div className="announcement">SOLO PARA PERSONAS INTERESADAS EN COMPRAR VEHÍCULOS SEMINUEVOS</div>
+    <nav className="nav"><div className="nav-links"><a href="#vehiculo">El vehículo</a><a href="#financiamiento">Financiamiento</a><a href="#contacto">Contacto</a></div><a className="brand" href="#inicio"><span>EL TANQUE <b>MOTORS</b></span><span className="brand-mark">ET</span></a></nav>
 
     <section className="hero no-visual" id="inicio"><div className="hero-copy"><div className="heading-row"><p className="eyebrow">TU PRÓXIMO VEHÍCULO ESTÁ AQUÍ</p><button className="edit-link" onClick={()=>setEditing(!editing)}>{editing?'Listo':'✎ Editar encabezado'}</button></div>{editing?<textarea className="heading-editor" value={heading} onChange={e=>setHeading(e.target.value)} aria-label="Editar encabezado"/>:<h1>{heading.split(' siempre ')[0]}<br/><em>{heading.includes(' siempre ')?'siempre '+heading.split(' siempre ')[1]:''}</em></h1>}<p className="hero-text">Conoce este vehículo, descubre cada característica y encuentra un financiamiento flexible con una garantía que sí responde.</p><div className="trust"><div><strong>60</strong><span>meses de<br/>financiamiento</span></div><div><strong>20%</strong><span>de enganche<br/>desde</span></div><div><strong>✓</strong><span>GARANTÍA EL<br/>TANQUE MOTORS</span></div></div></div></section>
 
