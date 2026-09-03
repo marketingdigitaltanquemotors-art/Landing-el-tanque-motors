@@ -2,56 +2,93 @@
 
 import { ChangeEvent, useEffect, useMemo, useState } from "react";
 import {
-  clearAdminCredentials,
-  AdminCredentials,
-  deleteVehicleVideo,
   LeadSubmission,
   SiteSettings,
   Vehicle,
   defaultSettings,
-  defaultVehicles,
-  hydrateVehiclesWithMedia,
-  loadActiveVehicleId,
-  loadAdminCredentials,
-  loadSettings,
-  loadSubmissions,
-  loadVehicles,
-  saveVehicleVideo,
-  saveActiveVehicleId,
-  saveAdminCredentials,
-  saveSettings,
-  saveVehicles,
+  money,
+  slugify,
 } from "../site-data";
 
-function money(value: number) {
-  return `RD$${new Intl.NumberFormat("es-DO", {
-    maximumFractionDigits: 0,
-  }).format(value)}`;
-}
+type SitePayload = {
+  settings: SiteSettings;
+  vehicles: Vehicle[];
+  submissions: LeadSubmission[];
+};
 
-function slugify(text: string) {
-  return text
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 40);
-}
+type AdminLoginStatus = {
+  configured: boolean;
+  username: string;
+};
 
-function readFileAsDataUrl(file: File) {
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(new Error("No se pudo leer el archivo."));
-    reader.readAsDataURL(file);
-  });
-}
+type SettingsField = {
+  key: keyof SiteSettings;
+  label: string;
+  multiline?: boolean;
+};
 
-function createVehicle(name = "Nuevo vehículo"): Vehicle {
-  const stamp = Date.now();
+const primarySettingsFields: SettingsField[] = [
+  { key: "announcement", label: "Barra superior" },
+  { key: "homeEyebrow", label: "Texto superior portada" },
+  { key: "homeTitle", label: "Título portada" },
+  { key: "homeDescription", label: "Descripción portada", multiline: true },
+  { key: "businessDescription", label: "Descripción de El Tanque Motors", multiline: true },
+  { key: "contactPhone", label: "Teléfono" },
+  { key: "contactAddress", label: "Dirección" },
+  { key: "contactHours", label: "Horario" },
+  { key: "homeCtaLabel", label: "Botón de WhatsApp" },
+];
+
+const vehicleSettingsFields: SettingsField[] = [
+  { key: "heading", label: "Título página vehículo" },
+  { key: "vehicleHeroEyebrow", label: "Texto superior vehículo" },
+  { key: "vehicleAvailabilityText", label: "Etiqueta sobre video" },
+  { key: "quickQuoteEyebrow", label: "Encabezado cotización" },
+  { key: "quickQuoteText", label: "Texto cotización", multiline: true },
+  { key: "quickQuoteButtonLabel", label: "Botón cotización" },
+  { key: "galleryEyebrow", label: "Título galería" },
+  { key: "featuresLabel", label: "Etiqueta características" },
+  { key: "priceLabel", label: "Etiqueta precio" },
+  { key: "benefitsEyebrow", label: "Encabezado beneficios" },
+  { key: "benefitsTitle", label: "Título beneficios" },
+  { key: "benefitFinanceTitle", label: "Beneficio 1 título" },
+  { key: "benefitFinanceText", label: "Beneficio 1 texto", multiline: true },
+  { key: "benefitWarrantyTitle", label: "Beneficio 2 título" },
+  { key: "benefitWarrantyText", label: "Beneficio 2 texto", multiline: true },
+  { key: "benefitTradeInTitle", label: "Beneficio 3 título" },
+  { key: "benefitTradeInText", label: "Beneficio 3 texto", multiline: true },
+  { key: "benefitsCta", label: "Texto destacado beneficios", multiline: true },
+  { key: "financeEyebrow", label: "Encabezado financiamiento" },
+  { key: "financeTitleLine1", label: "Financiamiento línea 1" },
+  { key: "financeTitleAccent", label: "Financiamiento línea 2" },
+  { key: "financeCopy", label: "Texto financiamiento", multiline: true },
+  { key: "financeBullet1", label: "Punto 1" },
+  { key: "financeBullet2", label: "Punto 2" },
+  { key: "financeBullet3", label: "Punto 3" },
+  { key: "financeButtonLabel", label: "Botón financiamiento" },
+];
+
+const simulatorSettingsFields: SettingsField[] = [
+  { key: "modalEyebrow", label: "Texto superior modal" },
+  { key: "modalTitle", label: "Título modal" },
+  { key: "modalText", label: "Texto modal", multiline: true },
+  { key: "selectedVehicleLabel", label: "Etiqueta vehículo seleccionado" },
+  { key: "simulatorEyebrow", label: "Encabezado simulador" },
+  { key: "simulatorTitlePrefix", label: "Inicio título simulador" },
+  { key: "simulatorImportant", label: "Nota importante", multiline: true },
+  { key: "simulatorWarning", label: "Advertencia", multiline: true },
+  { key: "downPaymentLabel", label: "Etiqueta enganche" },
+  { key: "downAmountLabel", label: "Etiqueta monto enganche" },
+  { key: "termLabel", label: "Etiqueta plazo" },
+  { key: "estimateLabel", label: "Etiqueta cuota" },
+  { key: "simulatorButtonLabel", label: "Botón simulador" },
+  { key: "simulatorDisclaimer", label: "Disclaimer", multiline: true },
+];
+
+function createVehicleDraft(count: number): Vehicle {
+  const name = `Vehículo ${count + 1}`;
   return {
-    id: `${slugify(name) || "vehiculo"}-${stamp}`,
+    id: `${slugify(name)}-${Date.now()}`,
     name,
     year: "2024",
     km: "0 km",
@@ -60,76 +97,66 @@ function createVehicle(name = "Nuevo vehículo"): Vehicle {
     price: 0,
     features: "Motor\nPantalla\nCámara\nAsientos",
     images: [],
+    imageMedia: [],
   };
+}
+
+async function readJson<T>(response: Response): Promise<T> {
+  const payload = (await response.json().catch(() => ({}))) as T & { error?: string };
+  if (!response.ok) {
+    throw new Error(payload.error || "La operación no pudo completarse.");
+  }
+  return payload;
 }
 
 export default function AdminPage() {
   const [ready, setReady] = useState(false);
-  const [credentials, setCredentials] = useState<AdminCredentials | null>(null);
   const [loggedIn, setLoggedIn] = useState(false);
-  const [loginUser, setLoginUser] = useState("");
+  const [loginUser, setLoginUser] = useState("admin");
   const [loginPass, setLoginPass] = useState("");
-  const [setupUser, setSetupUser] = useState("");
-  const [setupPass, setSetupPass] = useState("");
   const [settings, setSettings] = useState<SiteSettings>(defaultSettings);
-  const [vehicles, setVehicles] = useState<Vehicle[]>(defaultVehicles);
-  const [activeVehicleId, setActiveVehicleId] = useState(defaultVehicles[0].id);
-  const [selectedVehicleId, setSelectedVehicleId] = useState(defaultVehicles[0].id);
-  const [message, setMessage] = useState("");
-  const [credentialUser, setCredentialUser] = useState("");
-  const [credentialPass, setCredentialPass] = useState("");
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [selectedVehicleId, setSelectedVehicleId] = useState("");
   const [submissions, setSubmissions] = useState<LeadSubmission[]>([]);
   const [vehicleFilter, setVehicleFilter] = useState("todos");
   const [dateFilter, setDateFilter] = useState("");
+  const [message, setMessage] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [authConfigured, setAuthConfigured] = useState(true);
 
   useEffect(() => {
-    async function hydrateAdmin() {
-      const storedCredentials = loadAdminCredentials();
-      const storedVehicles = loadVehicles();
-      const hydratedVehicles = await hydrateVehiclesWithMedia(storedVehicles);
-      const storedActiveId = loadActiveVehicleId();
-      const storedSettings = loadSettings();
-      const storedSubmissions = loadSubmissions();
-      const resolvedActiveId =
-        hydratedVehicles.find((vehicle) => vehicle.id === storedActiveId)?.id ??
-        hydratedVehicles[0].id;
+    async function hydrate() {
+      try {
+        const response = await fetch("/api/admin/site", { credentials: "include" });
+        if (response.status === 401) {
+          const status = (await fetch("/api/admin/login").then((item) =>
+            item.json(),
+          )) as AdminLoginStatus;
+          setAuthConfigured(Boolean(status.configured));
+          setLoginUser(status.username || "admin");
+          setLoggedIn(false);
+          return;
+        }
 
-      setCredentials(storedCredentials);
-      setSettings(storedSettings);
-      setVehicles(hydratedVehicles);
-      setActiveVehicleId(resolvedActiveId);
-      setSelectedVehicleId(resolvedActiveId);
-      setCredentialUser(storedCredentials?.username ?? "");
-      setCredentialPass(storedCredentials?.password ?? "");
-      setSubmissions(storedSubmissions);
-      setReady(true);
+        const payload = await readJson<SitePayload>(response);
+        setSettings(payload.settings);
+        setVehicles(payload.vehicles);
+        setSelectedVehicleId(payload.vehicles[0]?.id || "");
+        setSubmissions(payload.submissions);
+        setLoggedIn(true);
+      } catch (error) {
+        setMessage(error instanceof Error ? error.message : "No se pudo cargar el panel.");
+      } finally {
+        setReady(true);
+      }
     }
 
-    hydrateAdmin();
+    hydrate();
   }, []);
 
   const selectedVehicle =
     vehicles.find((vehicle) => vehicle.id === selectedVehicleId) ?? vehicles[0];
 
-  useEffect(() => {
-    if (!ready) return;
-    saveVehicles(vehicles);
-  }, [ready, vehicles]);
-
-  useEffect(() => {
-    if (!ready) return;
-    saveSettings(settings);
-  }, [ready, settings]);
-
-  useEffect(() => {
-    if (!ready) return;
-    saveActiveVehicleId(activeVehicleId);
-  }, [ready, activeVehicleId]);
-
-  const totalMedia = useMemo(
-    () => (selectedVehicle.images?.length ?? 0) + (selectedVehicle.video ? 1 : 0),
-    [selectedVehicle],
-  );
   const filteredSubmissions = useMemo(() => {
     return submissions.filter((submission) => {
       const matchesVehicle =
@@ -144,7 +171,7 @@ export default function AdminPage() {
     return `${day}/${month}/${year}`;
   }
 
-  function updateVehicle(patch: Partial<Vehicle>) {
+  function updateVehicleLocal(patch: Partial<Vehicle>) {
     setVehicles((current) =>
       current.map((vehicle) =>
         vehicle.id === selectedVehicleId ? { ...vehicle, ...patch } : vehicle,
@@ -152,184 +179,218 @@ export default function AdminPage() {
     );
   }
 
-  function addVehicle() {
-    const newVehicle = createVehicle(`Vehículo ${vehicles.length + 1}`);
-    setVehicles((current) => [...current, newVehicle]);
-    setSelectedVehicleId(newVehicle.id);
-    setMessage("Nuevo vehículo creado.");
-  }
-
-  async function removeVehicle(id: string) {
-    if (vehicles.length === 1) {
-      setMessage("Debes dejar al menos un vehículo.");
-      return;
-    }
-
-    const removedVehicle = vehicles.find((vehicle) => vehicle.id === id);
-    const filtered = vehicles.filter((vehicle) => vehicle.id !== id);
-    const fallback = filtered[0];
-    await deleteVehicleVideo(removedVehicle?.videoStorageKey);
-    setVehicles(filtered);
-    if (activeVehicleId === id) {
-      setActiveVehicleId(fallback.id);
-    }
-    if (selectedVehicleId === id) {
-      setSelectedVehicleId(fallback.id);
-    }
-    setMessage("Vehículo eliminado.");
-  }
-
-  async function handleVideoUpload(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    event.target.value = "";
-
-    if (file.type !== "video/mp4") {
-      setMessage("Solo se permiten videos en formato MP4.");
-      return;
-    }
+  async function handleLogin() {
+    setSaving(true);
+    setMessage("");
 
     try {
-      const storageKey = await saveVehicleVideo(selectedVehicle.id, file);
-      const previewUrl = URL.createObjectURL(file);
-      updateVehicle({ video: previewUrl, videoStorageKey: storageKey });
-      setMessage("Video MP4 actualizado.");
-    } catch {
-      setMessage("No se pudo subir el video MP4. Intenta con un archivo más ligero.");
-    }
-  }
+      await readJson<{ ok: boolean }>(
+        await fetch("/api/admin/login", {
+          method: "POST",
+          credentials: "include",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ username: loginUser, password: loginPass }),
+        }),
+      );
 
-  async function handleImageUpload(event: ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(event.target.files ?? []);
-    if (!files.length) return;
-    const images = await Promise.all(files.map(readFileAsDataUrl));
-    updateVehicle({ images: [...(selectedVehicle.images ?? []), ...images] });
-    setMessage("Fotos agregadas.");
-  }
-
-  function removeImage(index: number) {
-    updateVehicle({
-      images: (selectedVehicle.images ?? []).filter((_, current) => current !== index),
-    });
-    setMessage("Foto eliminada.");
-  }
-
-  async function removeVideo() {
-    await deleteVehicleVideo(selectedVehicle.videoStorageKey);
-    if (selectedVehicle.video?.startsWith("blob:")) {
-      URL.revokeObjectURL(selectedVehicle.video);
-    }
-    updateVehicle({ video: undefined, videoStorageKey: undefined });
-    setMessage("Video eliminado.");
-  }
-
-  function removeAllImages() {
-    updateVehicle({ images: [] });
-    setMessage("Todas las fotos fueron eliminadas.");
-  }
-
-  function handleSetup() {
-    if (!setupUser.trim() || !setupPass.trim()) {
-      setMessage("Define un usuario y una contraseña.");
-      return;
-    }
-
-    const nextCredentials = {
-      username: setupUser.trim(),
-      password: setupPass,
-    };
-    saveAdminCredentials(nextCredentials);
-    setCredentials(nextCredentials);
-    setCredentialUser(nextCredentials.username);
-    setCredentialPass(nextCredentials.password);
-    setLoggedIn(true);
-    setMessage("Acceso creado correctamente.");
-  }
-
-  function handleLogin() {
-    if (!credentials) return;
-    if (
-      loginUser.trim() === credentials.username &&
-      loginPass === credentials.password
-    ) {
+      const payload = await readJson<SitePayload>(
+        await fetch("/api/admin/site", { credentials: "include" }),
+      );
+      setSettings(payload.settings);
+      setVehicles(payload.vehicles);
+      setSelectedVehicleId(payload.vehicles[0]?.id || "");
+      setSubmissions(payload.submissions);
       setLoggedIn(true);
-      setMessage("");
-      return;
+      setLoginPass("");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "No se pudo iniciar sesión.");
+    } finally {
+      setSaving(false);
     }
-
-    setMessage("Usuario o contraseña incorrectos.");
   }
 
-  function updateCredentials() {
-    if (!credentialUser.trim() || !credentialPass.trim()) {
-      setMessage("Completa usuario y contraseña para guardar.");
-      return;
-    }
-
-    const nextCredentials = {
-      username: credentialUser.trim(),
-      password: credentialPass,
-    };
-    saveAdminCredentials(nextCredentials);
-    setCredentials(nextCredentials);
-    setMessage("Acceso actualizado.");
-  }
-
-  function resetCredentials() {
-    clearAdminCredentials();
-    setCredentials(null);
+  async function logout() {
+    await fetch("/api/admin/logout", { method: "POST", credentials: "include" });
     setLoggedIn(false);
-    setLoginUser("");
-    setLoginPass("");
-    setSetupUser("");
-    setSetupPass("");
-    setCredentialUser("");
-    setCredentialPass("");
-    setMessage("Acceso reiniciado. Ahora crea tu nuevo usuario y contraseña.");
+  }
+
+  async function saveSettingsChanges() {
+    setSaving(true);
+    try {
+      const payload = await readJson<{ settings: SiteSettings }>(
+        await fetch("/api/admin/settings", {
+          method: "PUT",
+          credentials: "include",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(settings),
+        }),
+      );
+      setSettings(payload.settings);
+      setMessage("Configuración guardada.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "No se pudo guardar.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function addVehicle() {
+    setSaving(true);
+    try {
+      const payload = await readJson<{ vehicle: Vehicle }>(
+        await fetch("/api/admin/vehicles", {
+          method: "POST",
+          credentials: "include",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(createVehicleDraft(vehicles.length)),
+        }),
+      );
+      setVehicles((current) => [...current, payload.vehicle]);
+      setSelectedVehicleId(payload.vehicle.id);
+      setMessage("Vehículo creado.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "No se pudo crear el vehículo.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function saveVehicle() {
+    if (!selectedVehicle) return;
+    setSaving(true);
+    try {
+      const payload = await readJson<{ vehicle: Vehicle }>(
+        await fetch(`/api/admin/vehicles/${selectedVehicle.id}`, {
+          method: "PUT",
+          credentials: "include",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(selectedVehicle),
+        }),
+      );
+      setVehicles((current) =>
+        current.map((vehicle) =>
+          vehicle.id === payload.vehicle.id ? payload.vehicle : vehicle,
+        ),
+      );
+      setMessage("Vehículo guardado.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "No se pudo guardar el vehículo.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function removeVehicle() {
+    if (!selectedVehicle) return;
+    setSaving(true);
+    try {
+      const payload = await readJson<{ vehicles: Vehicle[] }>(
+        await fetch(`/api/admin/vehicles/${selectedVehicle.id}`, {
+          method: "DELETE",
+          credentials: "include",
+        }),
+      );
+      setVehicles(payload.vehicles);
+      setSelectedVehicleId(payload.vehicles[0]?.id || "");
+      setMessage("Vehículo eliminado.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "No se pudo eliminar.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function uploadMedia(event: ChangeEvent<HTMLInputElement>, kind: "image" | "video") {
+    const files = Array.from(event.target.files || []);
+    event.target.value = "";
+    if (!selectedVehicle || !files.length) return;
+
+    setSaving(true);
+    try {
+      let updatedVehicle = selectedVehicle;
+      for (const file of files) {
+        const formData = new FormData();
+        formData.append("vehicleId", selectedVehicle.id);
+        formData.append("kind", kind);
+        formData.append("file", file);
+        const payload = await readJson<{ vehicle: Vehicle }>(
+          await fetch("/api/admin/media", {
+            method: "POST",
+            credentials: "include",
+            body: formData,
+          }),
+        );
+        updatedVehicle = payload.vehicle;
+      }
+
+      setVehicles((current) =>
+        current.map((vehicle) =>
+          vehicle.id === updatedVehicle.id ? updatedVehicle : vehicle,
+        ),
+      );
+      setMessage(kind === "image" ? "Fotos cargadas." : "Video actualizado.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "No se pudo subir el archivo.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function deleteMedia(key: string) {
+    if (!selectedVehicle) return;
+    setSaving(true);
+    try {
+      const params = new URLSearchParams({ key, vehicleId: selectedVehicle.id });
+      const payload = await readJson<{ vehicle: Vehicle }>(
+        await fetch(`/api/admin/media?${params.toString()}`, {
+          method: "DELETE",
+          credentials: "include",
+        }),
+      );
+      setVehicles((current) =>
+        current.map((vehicle) =>
+          vehicle.id === payload.vehicle.id ? payload.vehicle : vehicle,
+        ),
+      );
+      setMessage("Archivo eliminado.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "No se pudo eliminar el archivo.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function renderSettingsFields(fields: SettingsField[]) {
+    return fields.map((field) => (
+      <label className={field.multiline ? "full" : ""} key={field.key}>
+        {field.label}
+        {field.multiline ? (
+          <textarea
+            value={settings[field.key]}
+            onChange={(event) =>
+              setSettings((current) => ({
+                ...current,
+                [field.key]: event.target.value,
+              }))
+            }
+          />
+        ) : (
+          <input
+            value={settings[field.key]}
+            onChange={(event) =>
+              setSettings((current) => ({
+                ...current,
+                [field.key]: event.target.value,
+              }))
+            }
+          />
+        )}
+      </label>
+    ));
   }
 
   if (!ready) {
-    return <main className="admin-page">Cargando panel…</main>;
-  }
-
-  if (!credentials) {
-    return (
-      <main className="admin-page">
-        <section className="admin-auth-card">
-          <p className="eyebrow">PANEL DE ADMINISTRACIÓN</p>
-          <h1>Define tu usuario y contraseña</h1>
-          <p className="admin-copy">
-            Esta será la entrada a tu panel para administrar varios vehículos.
-          </p>
-          <div className="admin-form-grid single">
-            <label>
-              Usuario
-              <input
-                value={setupUser}
-                onChange={(e) => setSetupUser(e.target.value)}
-                placeholder="Tu usuario"
-              />
-            </label>
-            <label>
-              Contraseña
-              <input
-                type="password"
-                value={setupPass}
-                onChange={(e) => setSetupPass(e.target.value)}
-                placeholder="Tu contraseña"
-              />
-            </label>
-          </div>
-          <button className="btn admin-submit" onClick={handleSetup}>
-            Crear acceso <span>↗</span>
-          </button>
-          <button className="outline-btn admin-reset-btn" onClick={resetCredentials}>
-            Reiniciar acceso
-          </button>
-          {message && <div className="admin-message">{message}</div>}
-        </section>
-      </main>
-    );
+    return <main className="admin-page">Cargando panel...</main>;
   }
 
   if (!loggedIn) {
@@ -339,15 +400,22 @@ export default function AdminPage() {
           <p className="eyebrow">PANEL DE ADMINISTRACIÓN</p>
           <h1>Inicia sesión</h1>
           <p className="admin-copy">
-            Entra para administrar todas las páginas individuales de tus vehículos.
+            El acceso ahora se valida en el servidor. Configura ADMIN_PASSWORD
+            antes de publicar el sitio.
           </p>
+          {!authConfigured && (
+            <div className="admin-message danger-message">
+              Falta ADMIN_PASSWORD. El panel queda bloqueado hasta configurar esa
+              variable de entorno.
+            </div>
+          )}
           <div className="admin-form-grid single">
             <label>
               Usuario
               <input
                 value={loginUser}
-                onChange={(e) => setLoginUser(e.target.value)}
-                placeholder="Usuario"
+                onChange={(event) => setLoginUser(event.target.value)}
+                placeholder="admin"
               />
             </label>
             <label>
@@ -355,18 +423,15 @@ export default function AdminPage() {
               <input
                 type="password"
                 value={loginPass}
-                onChange={(e) => setLoginPass(e.target.value)}
+                onChange={(event) => setLoginPass(event.target.value)}
                 placeholder="Contraseña"
               />
             </label>
           </div>
-          <button className="btn admin-submit" onClick={handleLogin}>
-            Entrar al panel <span>↗</span>
+          <button className="btn admin-submit" onClick={handleLogin} disabled={saving}>
+            {saving ? "Validando..." : "Entrar al panel"} <span>↗</span>
           </button>
-          <button className="outline-btn admin-reset-btn" onClick={resetCredentials}>
-            Olvidé mi contraseña / Reiniciar acceso
-          </button>
-          {message && <div className="admin-message">{message}</div>}
+          {message && <div className="admin-message danger-message">{message}</div>}
         </section>
       </main>
     );
@@ -380,16 +445,13 @@ export default function AdminPage() {
             <p className="eyebrow">PANEL DE ADMINISTRACIÓN</p>
             <h1>Administra tus vehículos</h1>
             <p className="admin-copy">
-              Desde aquí administras todos tus vehículos y cada uno tendrá su
-              propia página publicada.
+              Los cambios se guardan en la base de datos y quedan disponibles para
+              todos los visitantes del sitio.
             </p>
           </div>
           <div className="admin-topbar-actions">
-            <button className="outline-btn admin-logout" onClick={() => setLoggedIn(false)}>
+            <button className="outline-btn admin-logout" onClick={logout}>
               Cerrar sesión
-            </button>
-            <button className="outline-btn admin-reset-btn" onClick={resetCredentials}>
-              Reiniciar acceso
             </button>
           </div>
         </div>
@@ -399,7 +461,7 @@ export default function AdminPage() {
             <div className="admin-card">
               <div className="admin-card-row">
                 <h2>Vehículos</h2>
-                <button className="btn btn-small" onClick={addVehicle}>
+                <button className="btn btn-small" onClick={addVehicle} disabled={saving}>
                   Agregar
                 </button>
               </div>
@@ -423,30 +485,6 @@ export default function AdminPage() {
                 ))}
               </div>
             </div>
-
-            <div className="admin-card">
-              <h2>Acceso</h2>
-              <div className="admin-form-grid single compact">
-                <label>
-                  Usuario
-                  <input
-                    value={credentialUser}
-                    onChange={(e) => setCredentialUser(e.target.value)}
-                  />
-                </label>
-                <label>
-                  Contraseña
-                  <input
-                    type="password"
-                    value={credentialPass}
-                    onChange={(e) => setCredentialPass(e.target.value)}
-                  />
-                </label>
-              </div>
-              <button className="outline-btn admin-wide-btn" onClick={updateCredentials}>
-                Guardar acceso
-              </button>
-            </div>
           </aside>
 
           <section className="admin-main">
@@ -455,107 +493,19 @@ export default function AdminPage() {
                 <div>
                   <h2>Página de entrada</h2>
                   <p className="admin-mini-copy">
-                    Configura la portada principal con el logo y los datos de El Tanque Motors.
+                    Datos visibles en la portada, el contacto y el catálogo.
                   </p>
                 </div>
+                <button
+                  className="outline-btn admin-publish-btn"
+                  onClick={saveSettingsChanges}
+                  disabled={saving}
+                >
+                  Guardar textos
+                </button>
               </div>
               <div className="admin-form-grid">
-                <label>
-                  Texto superior
-                  <input
-                    value={settings.homeEyebrow}
-                    onChange={(e) =>
-                      setSettings((current) => ({
-                        ...current,
-                        homeEyebrow: e.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                <label>
-                  Título principal
-                  <input
-                    value={settings.homeTitle}
-                    onChange={(e) =>
-                      setSettings((current) => ({
-                        ...current,
-                        homeTitle: e.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                <label className="full">
-                  Descripción de portada
-                  <textarea
-                    value={settings.homeDescription}
-                    onChange={(e) =>
-                      setSettings((current) => ({
-                        ...current,
-                        homeDescription: e.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                <label className="full">
-                  Descripción de El Tanque Motors
-                  <textarea
-                    value={settings.businessDescription}
-                    onChange={(e) =>
-                      setSettings((current) => ({
-                        ...current,
-                        businessDescription: e.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                <label>
-                  Teléfono
-                  <input
-                    value={settings.contactPhone}
-                    onChange={(e) =>
-                      setSettings((current) => ({
-                        ...current,
-                        contactPhone: e.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                <label>
-                  Dirección
-                  <input
-                    value={settings.contactAddress}
-                    onChange={(e) =>
-                      setSettings((current) => ({
-                        ...current,
-                        contactAddress: e.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                <label>
-                  Horario
-                  <input
-                    value={settings.contactHours}
-                    onChange={(e) =>
-                      setSettings((current) => ({
-                        ...current,
-                        contactHours: e.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                <label>
-                  Texto del botón
-                  <input
-                    value={settings.homeCtaLabel}
-                    onChange={(e) =>
-                      setSettings((current) => ({
-                        ...current,
-                        homeCtaLabel: e.target.value,
-                      }))
-                    }
-                  />
-                </label>
+                {renderSettingsFields(primarySettingsFields)}
               </div>
             </div>
 
@@ -564,784 +514,182 @@ export default function AdminPage() {
                 <div>
                   <h2>Configuración avanzada</h2>
                   <p className="admin-mini-copy">
-                    Aquí están los textos y ajustes más detallados de la página.
+                    Textos de beneficios, financiamiento y simulador.
                   </p>
                 </div>
                 <span>Mostrar / ocultar</span>
               </summary>
-
               <div className="admin-card admin-subcard">
+                <h2>Página del vehículo</h2>
+                <div className="admin-form-grid">
+                  {renderSettingsFields(vehicleSettingsFields)}
+                </div>
+              </div>
+              <div className="admin-card admin-subcard">
+                <h2>Simulador</h2>
+                <div className="admin-form-grid">
+                  {renderSettingsFields(simulatorSettingsFields)}
+                </div>
+              </div>
+            </details>
+
+            {selectedVehicle && (
+              <div className="admin-card">
                 <div className="admin-card-row">
                   <div>
-                    <h2>Contenido general</h2>
+                    <h2>{selectedVehicle.name}</h2>
                     <p className="admin-mini-copy">
-                      Todos los vehículos se publican automáticamente con su propio enlace.
+                      Página pública: /vehiculo/{selectedVehicle.id}
                     </p>
                   </div>
+                  <div className="admin-topbar-actions">
+                    <button
+                      className="outline-btn admin-publish-btn"
+                      onClick={saveVehicle}
+                      disabled={saving}
+                    >
+                      Guardar vehículo
+                    </button>
+                    <button
+                      className="outline-btn danger-btn"
+                      onClick={removeVehicle}
+                      disabled={saving}
+                    >
+                      Eliminar
+                    </button>
+                  </div>
                 </div>
+
                 <div className="admin-form-grid">
                   <label>
-                    Texto de barra superior
+                    Nombre del vehículo
                     <input
-                      value={settings.announcement}
-                      onChange={(e) =>
-                        setSettings((current) => ({
-                          ...current,
-                          announcement: e.target.value,
-                        }))
+                      value={selectedVehicle.name}
+                      onChange={(event) => updateVehicleLocal({ name: event.target.value })}
+                    />
+                  </label>
+                  <label>
+                    Año
+                    <input
+                      value={selectedVehicle.year}
+                      onChange={(event) => updateVehicleLocal({ year: event.target.value })}
+                    />
+                  </label>
+                  <label>
+                    Kilometraje
+                    <input
+                      value={selectedVehicle.km}
+                      onChange={(event) => updateVehicleLocal({ km: event.target.value })}
+                    />
+                  </label>
+                  <label>
+                    Precio
+                    <input
+                      type="number"
+                      value={selectedVehicle.price}
+                      onChange={(event) =>
+                        updateVehicleLocal({ price: Number(event.target.value || 0) })
                       }
                     />
                   </label>
                   <label>
-                    Encabezado principal
+                    Combustible
                     <input
-                      value={settings.heading}
-                      onChange={(e) =>
-                        setSettings((current) => ({
-                          ...current,
-                          heading: e.target.value,
-                        }))
+                      value={selectedVehicle.fuel}
+                      onChange={(event) => updateVehicleLocal({ fuel: event.target.value })}
+                    />
+                  </label>
+                  <label>
+                    Transmisión
+                    <input
+                      value={selectedVehicle.transmission}
+                      onChange={(event) =>
+                        updateVehicleLocal({ transmission: event.target.value })
                       }
                     />
                   </label>
                   <label className="full">
-                    Texto descriptivo
+                    Características del vehículo
                     <textarea
-                      value={settings.heroText}
-                      onChange={(e) =>
-                        setSettings((current) => ({
-                          ...current,
-                          heroText: e.target.value,
-                        }))
+                      value={selectedVehicle.features}
+                      onChange={(event) =>
+                        updateVehicleLocal({ features: event.target.value })
                       }
                     />
                   </label>
                 </div>
-              </div>
 
-              <div className="admin-card admin-subcard">
-                <div className="admin-card-row">
-                  <div>
-                    <h2>Textos de la página del vehículo</h2>
-                    <p className="admin-mini-copy">
-                      Aquí vuelves a controlar los textos visibles en cada página individual.
-                    </p>
-                  </div>
-                </div>
-                <div className="admin-form-grid">
-                <label>
-                  Texto superior del vehículo
-                  <input
-                    value={settings.vehicleHeroEyebrow}
-                    onChange={(e) =>
-                      setSettings((current) => ({
-                        ...current,
-                        vehicleHeroEyebrow: e.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                <label>
-                  Texto sobre el video
-                  <input
-                    value={settings.vehicleAvailabilityText}
-                    onChange={(e) =>
-                      setSettings((current) => ({
-                        ...current,
-                        vehicleAvailabilityText: e.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                <label>
-                  Encabezado de cotización
-                  <input
-                    value={settings.quickQuoteEyebrow}
-                    onChange={(e) =>
-                      setSettings((current) => ({
-                        ...current,
-                        quickQuoteEyebrow: e.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                <label>
-                  Botón de cotización
-                  <input
-                    value={settings.quickQuoteButtonLabel}
-                    onChange={(e) =>
-                      setSettings((current) => ({
-                        ...current,
-                        quickQuoteButtonLabel: e.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                <label className="full">
-                  Texto de cotización
-                  <textarea
-                    value={settings.quickQuoteText}
-                    onChange={(e) =>
-                      setSettings((current) => ({
-                        ...current,
-                        quickQuoteText: e.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                <label>
-                  Título de la galería
-                  <input
-                    value={settings.galleryEyebrow}
-                    onChange={(e) =>
-                      setSettings((current) => ({
-                        ...current,
-                        galleryEyebrow: e.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                <label>
-                  Título de características
-                  <input
-                    value={settings.featuresLabel}
-                    onChange={(e) =>
-                      setSettings((current) => ({
-                        ...current,
-                        featuresLabel: e.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                <label>
-                  Texto de precio
-                  <input
-                    value={settings.priceLabel}
-                    onChange={(e) =>
-                      setSettings((current) => ({
-                        ...current,
-                        priceLabel: e.target.value,
-                      }))
-                    }
-                  />
-                </label>
-              </div>
-              </div>
-
-              <div className="admin-card admin-subcard">
-                <div className="admin-card-row">
-                  <div>
-                    <h2>Beneficios y garantía</h2>
-                    <p className="admin-mini-copy">
-                      Configura los bloques de confianza, beneficios y financiamiento.
-                    </p>
-                  </div>
-                </div>
-                <div className="admin-form-grid">
-                <label>
-                  Valor 1
-                  <input
-                    value={settings.trustMonthsValue}
-                    onChange={(e) =>
-                      setSettings((current) => ({
-                        ...current,
-                        trustMonthsValue: e.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                <label>
-                  Texto 1
-                  <textarea
-                    value={settings.trustMonthsLabel}
-                    onChange={(e) =>
-                      setSettings((current) => ({
-                        ...current,
-                        trustMonthsLabel: e.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                <label>
-                  Valor 2
-                  <input
-                    value={settings.trustDownValue}
-                    onChange={(e) =>
-                      setSettings((current) => ({
-                        ...current,
-                        trustDownValue: e.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                <label>
-                  Texto 2
-                  <textarea
-                    value={settings.trustDownLabel}
-                    onChange={(e) =>
-                      setSettings((current) => ({
-                        ...current,
-                        trustDownLabel: e.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                <label>
-                  Valor 3
-                  <input
-                    value={settings.trustWarrantyValue}
-                    onChange={(e) =>
-                      setSettings((current) => ({
-                        ...current,
-                        trustWarrantyValue: e.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                <label>
-                  Texto 3
-                  <textarea
-                    value={settings.trustWarrantyLabel}
-                    onChange={(e) =>
-                      setSettings((current) => ({
-                        ...current,
-                        trustWarrantyLabel: e.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                <label>
-                  Encabezado beneficios
-                  <input
-                    value={settings.benefitsEyebrow}
-                    onChange={(e) =>
-                      setSettings((current) => ({
-                        ...current,
-                        benefitsEyebrow: e.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                <label>
-                  Título beneficios
-                  <input
-                    value={settings.benefitsTitle}
-                    onChange={(e) =>
-                      setSettings((current) => ({
-                        ...current,
-                        benefitsTitle: e.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                <label>
-                  Beneficio 1 título
-                  <input
-                    value={settings.benefitFinanceTitle}
-                    onChange={(e) =>
-                      setSettings((current) => ({
-                        ...current,
-                        benefitFinanceTitle: e.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                <label className="full">
-                  Beneficio 1 texto
-                  <textarea
-                    value={settings.benefitFinanceText}
-                    onChange={(e) =>
-                      setSettings((current) => ({
-                        ...current,
-                        benefitFinanceText: e.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                <label>
-                  Beneficio 2 título
-                  <input
-                    value={settings.benefitWarrantyTitle}
-                    onChange={(e) =>
-                      setSettings((current) => ({
-                        ...current,
-                        benefitWarrantyTitle: e.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                <label className="full">
-                  Beneficio 2 texto
-                  <textarea
-                    value={settings.benefitWarrantyText}
-                    onChange={(e) =>
-                      setSettings((current) => ({
-                        ...current,
-                        benefitWarrantyText: e.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                <label>
-                  Beneficio 3 título
-                  <input
-                    value={settings.benefitTradeInTitle}
-                    onChange={(e) =>
-                      setSettings((current) => ({
-                        ...current,
-                        benefitTradeInTitle: e.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                <label className="full">
-                  Beneficio 3 texto
-                  <textarea
-                    value={settings.benefitTradeInText}
-                    onChange={(e) =>
-                      setSettings((current) => ({
-                        ...current,
-                        benefitTradeInText: e.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                <label className="full">
-                  Texto verde de beneficios
-                  <textarea
-                    value={settings.benefitsCta}
-                    onChange={(e) =>
-                      setSettings((current) => ({
-                        ...current,
-                        benefitsCta: e.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                <label>
-                  Encabezado financiamiento
-                  <input
-                    value={settings.financeEyebrow}
-                    onChange={(e) =>
-                      setSettings((current) => ({
-                        ...current,
-                        financeEyebrow: e.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                <label>
-                  Título financiamiento línea 1
-                  <input
-                    value={settings.financeTitleLine1}
-                    onChange={(e) =>
-                      setSettings((current) => ({
-                        ...current,
-                        financeTitleLine1: e.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                <label>
-                  Título financiamiento línea 2
-                  <input
-                    value={settings.financeTitleAccent}
-                    onChange={(e) =>
-                      setSettings((current) => ({
-                        ...current,
-                        financeTitleAccent: e.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                <label className="full">
-                  Texto financiamiento
-                  <textarea
-                    value={settings.financeCopy}
-                    onChange={(e) =>
-                      setSettings((current) => ({
-                        ...current,
-                        financeCopy: e.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                <label>
-                  Punto 1
-                  <input
-                    value={settings.financeBullet1}
-                    onChange={(e) =>
-                      setSettings((current) => ({
-                        ...current,
-                        financeBullet1: e.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                <label>
-                  Punto 2
-                  <input
-                    value={settings.financeBullet2}
-                    onChange={(e) =>
-                      setSettings((current) => ({
-                        ...current,
-                        financeBullet2: e.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                <label>
-                  Punto 3
-                  <input
-                    value={settings.financeBullet3}
-                    onChange={(e) =>
-                      setSettings((current) => ({
-                        ...current,
-                        financeBullet3: e.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                <label>
-                  Botón de financiamiento
-                  <input
-                    value={settings.financeButtonLabel}
-                    onChange={(e) =>
-                      setSettings((current) => ({
-                        ...current,
-                        financeButtonLabel: e.target.value,
-                      }))
-                    }
-                  />
-                </label>
-              </div>
-              </div>
-
-              <div className="admin-card admin-subcard">
-                <div className="admin-card-row">
-                  <div>
-                    <h2>Ventana de simulador</h2>
-                    <p className="admin-mini-copy">
-                      Edita los textos del modal de cotización y simulador.
-                    </p>
-                  </div>
-                </div>
-                <div className="admin-form-grid">
-                <label>
-                  Texto superior del modal
-                  <input
-                    value={settings.modalEyebrow}
-                    onChange={(e) =>
-                      setSettings((current) => ({
-                        ...current,
-                        modalEyebrow: e.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                <label>
-                  Título del modal
-                  <input
-                    value={settings.modalTitle}
-                    onChange={(e) =>
-                      setSettings((current) => ({
-                        ...current,
-                        modalTitle: e.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                <label className="full">
-                  Texto del modal
-                  <textarea
-                    value={settings.modalText}
-                    onChange={(e) =>
-                      setSettings((current) => ({
-                        ...current,
-                        modalText: e.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                <label>
-                  Texto de vehículo seleccionado
-                  <input
-                    value={settings.selectedVehicleLabel}
-                    onChange={(e) =>
-                      setSettings((current) => ({
-                        ...current,
-                        selectedVehicleLabel: e.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                <label>
-                  Encabezado simulador
-                  <input
-                    value={settings.simulatorEyebrow}
-                    onChange={(e) =>
-                      setSettings((current) => ({
-                        ...current,
-                        simulatorEyebrow: e.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                <label>
-                  Inicio del título del simulador
-                  <input
-                    value={settings.simulatorTitlePrefix}
-                    onChange={(e) =>
-                      setSettings((current) => ({
-                        ...current,
-                        simulatorTitlePrefix: e.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                <label>
-                  Etiqueta de enganche
-                  <input
-                    value={settings.downPaymentLabel}
-                    onChange={(e) =>
-                      setSettings((current) => ({
-                        ...current,
-                        downPaymentLabel: e.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                <label>
-                  Etiqueta de monto del enganche
-                  <input
-                    value={settings.downAmountLabel}
-                    onChange={(e) =>
-                      setSettings((current) => ({
-                        ...current,
-                        downAmountLabel: e.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                <label>
-                  Etiqueta de plazo
-                  <input
-                    value={settings.termLabel}
-                    onChange={(e) =>
-                      setSettings((current) => ({
-                        ...current,
-                        termLabel: e.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                <label>
-                  Etiqueta de cuota
-                  <input
-                    value={settings.estimateLabel}
-                    onChange={(e) =>
-                      setSettings((current) => ({
-                        ...current,
-                        estimateLabel: e.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                <label>
-                  Botón del simulador
-                  <input
-                    value={settings.simulatorButtonLabel}
-                    onChange={(e) =>
-                      setSettings((current) => ({
-                        ...current,
-                        simulatorButtonLabel: e.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                <label className="full">
-                  Nota importante
-                  <textarea
-                    value={settings.simulatorImportant}
-                    onChange={(e) =>
-                      setSettings((current) => ({
-                        ...current,
-                        simulatorImportant: e.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                <label className="full">
-                  Advertencia
-                  <textarea
-                    value={settings.simulatorWarning}
-                    onChange={(e) =>
-                      setSettings((current) => ({
-                        ...current,
-                        simulatorWarning: e.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                <label className="full">
-                  Disclaimer
-                  <textarea
-                    value={settings.simulatorDisclaimer}
-                    onChange={(e) =>
-                      setSettings((current) => ({
-                        ...current,
-                        simulatorDisclaimer: e.target.value,
-                      }))
-                    }
-                  />
-                </label>
-              </div>
-              </div>
-            </details>
-
-            <div className="admin-card">
-              <div className="admin-card-row">
-                <div>
-                  <h2>{selectedVehicle.name}</h2>
-                  <p className="admin-mini-copy">
-                    Archivos cargados: {totalMedia} elemento(s)
-                  </p>
-                </div>
-                <button
-                  className="outline-btn danger-btn"
-                  onClick={() => removeVehicle(selectedVehicle.id)}
-                >
-                  Eliminar vehículo
-                </button>
-              </div>
-
-              <div className="admin-form-grid">
-                <label>
-                  Nombre del vehículo
-                  <input
-                    value={selectedVehicle.name}
-                    onChange={(e) => updateVehicle({ name: e.target.value })}
-                  />
-                </label>
-                <label>
-                  Año
-                  <input
-                    value={selectedVehicle.year}
-                    onChange={(e) => updateVehicle({ year: e.target.value })}
-                  />
-                </label>
-                <label>
-                  Kilometraje
-                  <input
-                    value={selectedVehicle.km}
-                    onChange={(e) => updateVehicle({ km: e.target.value })}
-                  />
-                </label>
-                <label>
-                  Precio
-                  <input
-                    type="number"
-                    value={selectedVehicle.price}
-                    onChange={(e) =>
-                      updateVehicle({ price: Number(e.target.value || 0) })
-                    }
-                  />
-                </label>
-                <label>
-                  Combustible
-                  <input
-                    value={selectedVehicle.fuel}
-                    onChange={(e) => updateVehicle({ fuel: e.target.value })}
-                  />
-                </label>
-                <label>
-                  Transmisión
-                  <input
-                    value={selectedVehicle.transmission}
-                    onChange={(e) =>
-                      updateVehicle({ transmission: e.target.value })
-                    }
-                  />
-                </label>
-                <label className="full">
-                  Características del vehículo
-                  <textarea
-                    value={selectedVehicle.features}
-                    onChange={(e) => updateVehicle({ features: e.target.value })}
-                  />
-                </label>
-              </div>
-
-              <div className="admin-media-grid">
-                <div className="admin-media-card">
-                  <p className="admin-media-title">Video del vehículo</p>
-                  {selectedVehicle.video ? (
-                    <video src={selectedVehicle.video} controls playsInline />
-                  ) : (
-                    <div className="admin-media-empty">Aún no has cargado video.</div>
-                  )}
-                  <div className="admin-media-actions">
-                    <label className="btn admin-upload">
-                      <input
-                        type="file"
-                        accept="video/mp4,.mp4"
-                        onChange={handleVideoUpload}
-                      />
-                      Subir video
-                    </label>
+                <div className="admin-media-grid">
+                  <div className="admin-media-card">
+                    <p className="admin-media-title">Video del vehículo</p>
                     {selectedVehicle.video ? (
-                      <button className="btn admin-delete-media" onClick={removeVideo}>
-                        Eliminar video
-                      </button>
-                    ) : null}
-                  </div>
-                </div>
-
-                <div className="admin-media-card">
-                  <p className="admin-media-title">Fotos del vehículo</p>
-                  {selectedVehicle.images?.length ? (
-                    <div className="admin-image-grid">
-                      {selectedVehicle.images.map((image, index) => (
-                        <div className="admin-image-item" key={`${image}-${index}`}>
-                          <img src={image} alt={`${selectedVehicle.name} ${index + 1}`} />
-                          <button
-                            className="admin-remove-image"
-                            onClick={() => removeImage(index)}
-                          >
-                            Quitar
-                          </button>
-                        </div>
-                      ))}
+                      <video src={selectedVehicle.video} controls playsInline />
+                    ) : (
+                      <div className="admin-media-empty">Aún no has cargado video.</div>
+                    )}
+                    <div className="admin-media-actions">
+                      <label className="btn admin-upload">
+                        <input
+                          type="file"
+                          accept="video/mp4,.mp4"
+                          onChange={(event) => uploadMedia(event, "video")}
+                        />
+                        Subir video
+                      </label>
+                      {selectedVehicle.videoStorageKey && (
+                        <button
+                          className="btn admin-delete-media"
+                          onClick={() => deleteMedia(selectedVehicle.videoStorageKey!)}
+                          disabled={saving}
+                        >
+                          Eliminar video
+                        </button>
+                      )}
                     </div>
-                  ) : (
-                    <div className="admin-media-empty">Aún no has cargado fotos.</div>
-                  )}
-                  <div className="admin-media-actions">
-                    <label className="btn admin-upload">
-                      <input
-                        type="file"
-                        accept="image/*"
-                        multiple
-                        onChange={handleImageUpload}
-                      />
-                      Subir fotos
-                    </label>
-                    {selectedVehicle.images?.length ? (
-                      <button className="btn admin-delete-media" onClick={removeAllImages}>
-                        Eliminar fotos
-                      </button>
-                    ) : null}
+                  </div>
+
+                  <div className="admin-media-card">
+                    <p className="admin-media-title">Fotos del vehículo</p>
+                    {selectedVehicle.imageMedia?.length ? (
+                      <div className="admin-image-grid">
+                        {selectedVehicle.imageMedia.map((image, index) => (
+                          <div className="admin-image-item" key={image.key}>
+                            <img src={image.url} alt={`${selectedVehicle.name} ${index + 1}`} />
+                            <button
+                              className="admin-remove-image"
+                              onClick={() => deleteMedia(image.key)}
+                              disabled={saving}
+                            >
+                              Quitar
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="admin-media-empty">Aún no has cargado fotos.</div>
+                    )}
+                    <div className="admin-media-actions">
+                      <label className="btn admin-upload">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          onChange={(event) => uploadMedia(event, "image")}
+                        />
+                        Subir fotos
+                      </label>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
+            )}
 
             <div className="admin-card">
               <div className="admin-card-row">
                 <div>
                   <h2>Formularios recibidos</h2>
                   <p className="admin-mini-copy">
-                    Revisa todas las citas enviadas desde la página pública.
+                    Citas enviadas desde la página pública.
                   </p>
                 </div>
               </div>
@@ -1351,7 +699,7 @@ export default function AdminPage() {
                   Filtrar por vehículo
                   <select
                     value={vehicleFilter}
-                    onChange={(e) => setVehicleFilter(e.target.value)}
+                    onChange={(event) => setVehicleFilter(event.target.value)}
                   >
                     <option value="todos">Todos los vehículos</option>
                     {vehicles.map((vehicle) => (
@@ -1366,7 +714,7 @@ export default function AdminPage() {
                   <input
                     type="date"
                     value={dateFilter}
-                    onChange={(e) => setDateFilter(e.target.value)}
+                    onChange={(event) => setDateFilter(event.target.value)}
                   />
                 </label>
               </div>

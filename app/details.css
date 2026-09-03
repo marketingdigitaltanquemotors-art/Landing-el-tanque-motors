@@ -1708,6 +1708,11 @@ footer {
   border: 1px solid #b8d4b2;
   line-height: 1.45;
 }
+.danger-message {
+  background: #fff3f1;
+  border-color: #d86a5f;
+  color: #8c2f26;
+}
 .admin-message.floating {
   margin-top: 18px;
 }

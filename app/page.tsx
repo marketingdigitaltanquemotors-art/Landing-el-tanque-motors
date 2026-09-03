@@ -1,27 +1,21 @@
-"use client";
+import Link from "next/link";
+import { getSiteData } from "./server/store";
+import { defaultSettings, money } from "./site-data";
 
-import { useEffect, useState } from "react";
-import { defaultSettings, loadSettings } from "./site-data";
+export const dynamic = "force-dynamic";
 
-export default function Home() {
-  const [settings, setSettings] = useState(defaultSettings);
-
-  useEffect(() => {
-    async function hydrateHome() {
-      setSettings(loadSettings());
-    }
-
-    hydrateHome();
-  }, []);
-
-  const contactPhoneDigits = settings.contactPhone.replace(/\D/g, "");
+export default async function Home() {
+  const { settings, vehicles } = await getSiteData();
+  const resolvedSettings = { ...defaultSettings, ...settings };
+  const contactPhoneDigits = resolvedSettings.contactPhone.replace(/\D/g, "");
   const contactLink = `https://wa.me/1${contactPhoneDigits}`;
 
   return (
     <main>
-      <div className="announcement">{settings.announcement}</div>
+      <div className="announcement">{resolvedSettings.announcement}</div>
       <nav className="nav">
         <div className="nav-links">
+          <a href="#inventario">Inventario</a>
           <a href="#beneficios">Beneficios</a>
           <a href="#contacto">Contacto</a>
         </div>
@@ -40,23 +34,23 @@ export default function Home() {
                 className="home-brand-logo"
               />
               <div>
-                <p className="eyebrow">{settings.homeEyebrow}</p>
+                <p className="eyebrow">{resolvedSettings.homeEyebrow}</p>
                 <h2>EL TANQUE MOTORS</h2>
               </div>
             </div>
-            <p className="home-brand-description">{settings.businessDescription}</p>
+            <p className="home-brand-description">{resolvedSettings.businessDescription}</p>
             <div className="home-brand-data">
               <div>
                 <span>Teléfono</span>
-                <strong>{settings.contactPhone}</strong>
+                <strong>{resolvedSettings.contactPhone}</strong>
               </div>
               <div>
                 <span>Ubicación</span>
-                <strong>{settings.contactAddress}</strong>
+                <strong>{resolvedSettings.contactAddress}</strong>
               </div>
               <div>
                 <span>Horario</span>
-                <strong>{settings.contactHours}</strong>
+                <strong>{resolvedSettings.contactHours}</strong>
               </div>
             </div>
           </div>
@@ -65,47 +59,85 @@ export default function Home() {
             <div className="heading-row">
               <p className="eyebrow">TU PRÓXIMO VEHÍCULO ESTÁ AQUÍ</p>
             </div>
-            <h1>{settings.homeTitle}</h1>
-            <p className="hero-text">{settings.homeDescription}</p>
+            <h1>{resolvedSettings.homeTitle}</h1>
+            <p className="hero-text">{resolvedSettings.homeDescription}</p>
             <a
               className="btn home-cta"
               href={contactLink}
               target="_blank"
               rel="noreferrer"
             >
-              {settings.homeCtaLabel} <span>↗</span>
+              {resolvedSettings.homeCtaLabel} <span>↗</span>
             </a>
           </div>
         </div>
       </section>
 
+      <section className="inventory catalog-page" id="inventario">
+        <div className="catalog-heading">
+          <div>
+            <p className="eyebrow">INVENTARIO DISPONIBLE</p>
+            <h2>Vehículos publicados</h2>
+          </div>
+          <p>
+            Cada unidad tiene su propia página con fotos, video, características y
+            simulador de pago.
+          </p>
+        </div>
+        <div className="catalog-grid">
+          {vehicles.map((vehicle) => (
+            <article className="catalog-card" key={vehicle.id}>
+              <div className="catalog-media">
+                {vehicle.images?.[0] ? (
+                  <img src={vehicle.images[0]} alt={`${vehicle.name} ${vehicle.year}`} />
+                ) : vehicle.video ? (
+                  <video src={vehicle.video} muted playsInline preload="metadata" />
+                ) : (
+                  <div className="mini-car">
+                    <div />
+                  </div>
+                )}
+              </div>
+              <div className="catalog-body">
+                <p>
+                  {vehicle.year} · {vehicle.transmission}
+                </p>
+                <h3>{vehicle.name}</h3>
+                <div className="specs">
+                  <span>{vehicle.km}</span>
+                  <span>{vehicle.fuel}</span>
+                </div>
+                <div className="vehicle-price">
+                  <span>{resolvedSettings.priceLabel}</span>
+                  <strong>{money(vehicle.price)}</strong>
+                </div>
+                <Link className="btn catalog-btn" href={`/vehiculo/${vehicle.id}`}>
+                  Ver vehículo <span>↗</span>
+                </Link>
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
+
       <section className="benefits-strip catalog-benefits" id="beneficios">
-        <p className="eyebrow">BENEFICIOS DE COMPRAR CON EL TANQUE MOTORS</p>
-        <h3>Beneficios de comprar seminuevos</h3>
+        <p className="eyebrow">{resolvedSettings.benefitsEyebrow}</p>
+        <h3>{resolvedSettings.benefitsTitle}</h3>
         <div className="benefits-grid">
           <article>
             <div className="benefit-icon">💵</div>
-            <h4>Financiamiento accesible</h4>
-            <p>
-              Opciones financieras y de arrendamiento que se ajustan a las
-              necesidades de nuestros clientes.
-            </p>
+            <h4>{resolvedSettings.benefitFinanceTitle}</h4>
+            <p>{resolvedSettings.benefitFinanceText}</p>
           </article>
           <article>
             <div className="benefit-icon">🏅</div>
-            <h4>Calidad y garantía</h4>
-            <p>
-              Vehículos seleccionados con respaldo para darte mayor confianza en
-              tu compra.
-            </p>
+            <h4>{resolvedSettings.benefitWarrantyTitle}</h4>
+            <p>{resolvedSettings.benefitWarrantyText}</p>
           </article>
           <article>
             <div className="benefit-icon">🚗</div>
-            <h4>Toma de auto</h4>
-            <p>
-              Posibilidad de tomar tu auto usado como parte del proceso para
-              facilitar el cambio a tu nuevo vehículo.
-            </p>
+            <h4>{resolvedSettings.benefitTradeInTitle}</h4>
+            <p>{resolvedSettings.benefitTradeInText}</p>
           </article>
         </div>
       </section>
