@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 const weekdayHours = [
@@ -104,7 +104,7 @@ function parseHourLabel(value: string) {
   return { hour, minute: rawMinute };
 }
 
-export default function SchedulePage() {
+function ScheduleContent() {
   const searchParams = useSearchParams();
   const vehicle = searchParams.get("vehicle") ?? "Vehículo";
   const year = searchParams.get("year") ?? "";
@@ -419,5 +419,13 @@ export default function SchedulePage() {
         )}
       </section>
     </main>
+  );
+}
+
+export default function SchedulePage() {
+  return (
+    <Suspense fallback={<main className="schedule-page" />}>
+      <ScheduleContent />
+    </Suspense>
   );
 }
