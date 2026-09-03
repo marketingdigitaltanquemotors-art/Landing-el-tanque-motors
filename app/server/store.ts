@@ -1,3 +1,4 @@
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import {
   LeadSubmission,
   SiteSettings,
@@ -8,10 +9,13 @@ import {
   slugify,
 } from "../site-data";
 
-type RuntimeEnv = {
-  DB?: D1Database;
-  MEDIA?: R2Bucket;
-};
+type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | { [key: string]: JsonValue };
 
 type VehicleRow = {
   id: string;
@@ -23,6 +27,8 @@ type VehicleRow = {
   price: number;
   features: string;
   sort_order: number;
+  created_at?: string;
+  updated_at?: string;
 };
 
 type MediaRow = {
@@ -33,6 +39,7 @@ type MediaRow = {
   content_type: string | null;
   size: number | null;
   sort_order: number;
+  created_at?: string;
 };
 
 type LeadRow = {
@@ -53,36 +60,60 @@ type LeadRow = {
   created_at: string;
 };
 
-let runtimeEnv: Promise<RuntimeEnv> | null = null;
-let schemaReady: Promise<void> | null = null;
+type StoredMediaObject = {
+  body: ReadableStream<Uint8Array>;
+  contentType: string;
+};
 
-async function getRuntimeEnv() {
-  if (!runtimeEnv) {
-    runtimeEnv = import("cloudflare:workers")
-      .then((module) => module.env as RuntimeEnv)
-      .catch(() => ({}));
+const SETTINGS_TABLE = "site_settings";
+const VEHICLES_TABLE = "vehicles";
+const MEDIA_TABLE = "vehicle_media";
+const SUBMISSIONS_TABLE = "lead_submissions";
+const DEFAULT_BUCKET = "vehicle-media";
+
+let supabaseClient: SupabaseClient | null = null;
+let defaultsReady: Promise<void> | null = null;
+
+function getSupabaseConfig() {
+  const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const bucket = process.env.SUPABASE_STORAGE_BUCKET || DEFAULT_BUCKET;
+
+  if (!url || !serviceRoleKey) {
+    throw new Error("Falta configurar Supabase en Vercel.");
   }
-  return runtimeEnv;
+
+  return { url, serviceRoleKey, bucket };
 }
 
-async function getDb() {
-  const currentEnv = await getRuntimeEnv();
-  if (!currentEnv.DB) {
-    throw new Error("Falta configurar el binding D1 DB.");
+function getSupabase() {
+  if (!supabaseClient) {
+    const { url, serviceRoleKey } = getSupabaseConfig();
+    supabaseClient = createClient(url, serviceRoleKey, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+      },
+    });
   }
-  return currentEnv.DB;
+
+  return supabaseClient;
 }
 
-async function getBucket() {
-  const currentEnv = await getRuntimeEnv();
-  if (!currentEnv.MEDIA) {
-    throw new Error("Falta configurar el bucket R2 MEDIA.");
-  }
-  return currentEnv.MEDIA;
+function getStorageBucket() {
+  return getSupabaseConfig().bucket;
+}
+
+function isMissingSupabaseConfig(error: unknown) {
+  return error instanceof Error && error.message === "Falta configurar Supabase en Vercel.";
 }
 
 function mediaUrl(key: string) {
   return `/api/media/${key.split("/").map(encodeURIComponent).join("/")}`;
+}
+
+function requireNoError(error: { message: string } | null) {
+  if (error) throw new Error(error.message);
 }
 
 function toMedia(row: MediaRow): VehicleMedia {
@@ -121,203 +152,136 @@ function toVehicle(row: VehicleRow, mediaRows: MediaRow[]): Vehicle {
   };
 }
 
-async function ensureSchema() {
-  if (schemaReady) return schemaReady;
+async function ensureDefaults() {
+  if (defaultsReady) return defaultsReady;
 
-  schemaReady = (async () => {
-    const db = await getDb();
-    await db.batch([
-      db.prepare(
-        `CREATE TABLE IF NOT EXISTS settings (
-          id TEXT PRIMARY KEY,
-          value TEXT NOT NULL,
-          updated_at TEXT NOT NULL
-        )`,
-      ),
-      db.prepare(
-        `CREATE TABLE IF NOT EXISTS vehicles (
-          id TEXT PRIMARY KEY,
-          name TEXT NOT NULL,
-          year TEXT NOT NULL,
-          km TEXT NOT NULL,
-          fuel TEXT NOT NULL,
-          transmission TEXT NOT NULL,
-          price INTEGER NOT NULL DEFAULT 0,
-          features TEXT NOT NULL,
-          sort_order INTEGER NOT NULL DEFAULT 0,
-          created_at TEXT NOT NULL,
-          updated_at TEXT NOT NULL
-        )`,
-      ),
-      db.prepare(
-        `CREATE TABLE IF NOT EXISTS media (
-          key TEXT PRIMARY KEY,
-          vehicle_id TEXT NOT NULL,
-          kind TEXT NOT NULL CHECK (kind IN ('image', 'video')),
-          filename TEXT,
-          content_type TEXT,
-          size INTEGER,
-          sort_order INTEGER NOT NULL DEFAULT 0,
-          created_at TEXT NOT NULL,
-          FOREIGN KEY (vehicle_id) REFERENCES vehicles(id) ON DELETE CASCADE
-        )`,
-      ),
-      db.prepare(
-        `CREATE TABLE IF NOT EXISTS submissions (
-          id TEXT PRIMARY KEY,
-          vehicle TEXT NOT NULL,
-          year TEXT NOT NULL,
-          price INTEGER NOT NULL DEFAULT 0,
-          down INTEGER NOT NULL DEFAULT 20,
-          months INTEGER NOT NULL DEFAULT 48,
-          monthly INTEGER NOT NULL DEFAULT 0,
-          date TEXT NOT NULL,
-          time TEXT NOT NULL,
-          name TEXT NOT NULL,
-          gmail TEXT NOT NULL,
-          phone TEXT NOT NULL,
-          initial TEXT NOT NULL,
-          timeline TEXT NOT NULL,
-          created_at TEXT NOT NULL
-        )`,
-      ),
-      db.prepare("CREATE INDEX IF NOT EXISTS idx_media_vehicle ON media(vehicle_id)"),
-      db.prepare("CREATE INDEX IF NOT EXISTS idx_submissions_created ON submissions(created_at)"),
-      db.prepare("CREATE INDEX IF NOT EXISTS idx_submissions_vehicle_date ON submissions(vehicle, date)"),
-    ]);
-
+  defaultsReady = (async () => {
+    const supabase = getSupabase();
     const now = new Date().toISOString();
-    await db
-      .prepare(
-        `INSERT INTO settings (id, value, updated_at)
-        VALUES ('site', ?1, ?2)
-        ON CONFLICT(id) DO NOTHING`,
-      )
-      .bind(JSON.stringify(defaultSettings), now)
-      .run();
 
-    const count = await db
-      .prepare("SELECT COUNT(*) AS total FROM vehicles")
-      .first<{ total: number }>();
+    const { error: settingsError } = await supabase.from(SETTINGS_TABLE).upsert(
+      {
+        id: "site",
+        value: defaultSettings as unknown as JsonValue,
+        updated_at: now,
+      },
+      { onConflict: "id", ignoreDuplicates: true },
+    );
+    requireNoError(settingsError);
 
-    if (!count?.total) {
+    const { count, error: countError } = await supabase
+      .from(VEHICLES_TABLE)
+      .select("id", { count: "exact", head: true });
+    requireNoError(countError);
+
+    if (!count) {
       const vehicle = defaultVehicles[0];
-      await db
-        .prepare(
-          `INSERT INTO vehicles (
-            id, name, year, km, fuel, transmission, price, features, sort_order, created_at, updated_at
-          ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 0, ?9, ?9)`,
-        )
-        .bind(
-          vehicle.id,
-          vehicle.name,
-          vehicle.year,
-          vehicle.km,
-          vehicle.fuel,
-          vehicle.transmission,
-          vehicle.price,
-          vehicle.features,
-          now,
-        )
-        .run();
+      const { error: vehicleError } = await supabase.from(VEHICLES_TABLE).insert({
+        id: vehicle.id,
+        name: vehicle.name,
+        year: vehicle.year,
+        km: vehicle.km,
+        fuel: vehicle.fuel,
+        transmission: vehicle.transmission,
+        price: vehicle.price,
+        features: vehicle.features,
+        sort_order: 0,
+        created_at: now,
+        updated_at: now,
+      });
+      requireNoError(vehicleError);
     }
-
-    await db.prepare("PRAGMA optimize").run();
   })().catch((error) => {
-    schemaReady = null;
+    defaultsReady = null;
     throw error;
   });
 
-  return schemaReady;
-}
-
-function isMissingBinding(error: unknown) {
-  return error instanceof Error && error.message.startsWith("Falta configurar");
+  return defaultsReady;
 }
 
 export async function getSettings() {
-  let row: { value: string } | null = null;
-
   try {
-    await ensureSchema();
-    const db = await getDb();
-    row = await db
-      .prepare("SELECT value FROM settings WHERE id = 'site'")
-      .first<{ value: string }>();
+    await ensureDefaults();
+    const { data, error } = await getSupabase()
+      .from(SETTINGS_TABLE)
+      .select("value")
+      .eq("id", "site")
+      .maybeSingle<{ value: SiteSettings }>();
+    requireNoError(error);
+
+    return { ...defaultSettings, ...(data?.value || {}) };
   } catch (error) {
-    if (isMissingBinding(error)) return defaultSettings;
+    if (isMissingSupabaseConfig(error)) return defaultSettings;
     throw error;
-  }
-
-  if (!row?.value) return defaultSettings;
-
-  try {
-    return { ...defaultSettings, ...(JSON.parse(row.value) as SiteSettings) };
-  } catch {
-    return defaultSettings;
   }
 }
 
 export async function saveSettings(settings: SiteSettings) {
-  await ensureSchema();
-  const now = new Date().toISOString();
-  const db = await getDb();
-  await db
-    .prepare(
-      `INSERT INTO settings (id, value, updated_at)
-      VALUES ('site', ?1, ?2)
-      ON CONFLICT(id) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
-    )
-    .bind(JSON.stringify({ ...defaultSettings, ...settings }), now)
-    .run();
+  await ensureDefaults();
+  const { error } = await getSupabase().from(SETTINGS_TABLE).upsert({
+    id: "site",
+    value: { ...defaultSettings, ...settings } as unknown as JsonValue,
+    updated_at: new Date().toISOString(),
+  });
+  requireNoError(error);
+
   return getSettings();
 }
 
 export async function listVehicles() {
-  let vehicles: D1Result<VehicleRow>;
-  let media: D1Result<MediaRow>;
-
   try {
-    await ensureSchema();
-    const db = await getDb();
-    vehicles = await db
-      .prepare("SELECT * FROM vehicles ORDER BY sort_order ASC, created_at ASC")
-      .all<VehicleRow>();
-    media = await db
-      .prepare("SELECT * FROM media ORDER BY sort_order ASC, created_at ASC")
-      .all<MediaRow>();
+    await ensureDefaults();
+    const supabase = getSupabase();
+    const [{ data: vehicles, error: vehiclesError }, { data: media, error: mediaError }] =
+      await Promise.all([
+        supabase
+          .from(VEHICLES_TABLE)
+          .select("*")
+          .order("sort_order", { ascending: true })
+          .order("created_at", { ascending: true }),
+        supabase
+          .from(MEDIA_TABLE)
+          .select("*")
+          .order("sort_order", { ascending: true })
+          .order("created_at", { ascending: true }),
+      ]);
+    requireNoError(vehiclesError);
+    requireNoError(mediaError);
+
+    return ((vehicles || []) as VehicleRow[]).map((vehicle) =>
+      toVehicle(vehicle, (media || []) as MediaRow[]),
+    );
   } catch (error) {
-    if (isMissingBinding(error)) return defaultVehicles;
+    if (isMissingSupabaseConfig(error)) return defaultVehicles;
     throw error;
   }
-
-  return vehicles.results.map((vehicle) => toVehicle(vehicle, media.results));
 }
 
 export async function getVehicleById(id: string) {
-  let vehicle: VehicleRow | null = null;
-  let media: D1Result<MediaRow>;
-
   try {
-    await ensureSchema();
-    const db = await getDb();
-    vehicle = await db
-      .prepare("SELECT * FROM vehicles WHERE id = ?1")
-      .bind(id)
-      .first<VehicleRow>();
-    media = await db
-      .prepare("SELECT * FROM media WHERE vehicle_id = ?1 ORDER BY sort_order ASC, created_at ASC")
-      .bind(id)
-      .all<MediaRow>();
+    await ensureDefaults();
+    const supabase = getSupabase();
+    const [{ data: vehicle, error: vehicleError }, { data: media, error: mediaError }] =
+      await Promise.all([
+        supabase.from(VEHICLES_TABLE).select("*").eq("id", id).maybeSingle<VehicleRow>(),
+        supabase
+          .from(MEDIA_TABLE)
+          .select("*")
+          .eq("vehicle_id", id)
+          .order("sort_order", { ascending: true })
+          .order("created_at", { ascending: true }),
+      ]);
+    requireNoError(vehicleError);
+    requireNoError(mediaError);
+
+    if (!vehicle) return null;
+    return toVehicle(vehicle, (media || []) as MediaRow[]);
   } catch (error) {
-    if (isMissingBinding(error)) {
+    if (isMissingSupabaseConfig(error)) {
       return defaultVehicles.find((item) => item.id === id) || null;
     }
     throw error;
   }
-
-  if (!vehicle) return null;
-  return toVehicle(vehicle, media.results);
 }
 
 export async function getSiteData() {
@@ -326,7 +290,8 @@ export async function getSiteData() {
 }
 
 export async function upsertVehicle(input: Partial<Vehicle> & { id?: string }) {
-  await ensureSchema();
+  await ensureDefaults();
+  const supabase = getSupabase();
   const now = new Date().toISOString();
   const fallbackName = input.name?.trim() || "Nuevo vehículo";
   const id = input.id?.trim() || `${slugify(fallbackName) || "vehiculo"}-${Date.now()}`;
@@ -341,62 +306,51 @@ export async function upsertVehicle(input: Partial<Vehicle> & { id?: string }) {
     transmission: input.transmission?.trim() || current?.transmission || "Automático",
     price: Math.max(0, Math.round(Number(input.price || current?.price || 0))),
     features: input.features?.trim() || current?.features || "Motor\nPantalla\nCámara\nAsientos",
+    updated_at: now,
   };
 
-  const db = await getDb();
-  const count = await db
-    .prepare("SELECT COUNT(*) AS total FROM vehicles")
-    .first<{ total: number }>();
-  const sortOrder = current ? undefined : Number(count?.total || 0);
+  if (current) {
+    const { error } = await supabase.from(VEHICLES_TABLE).update(vehicle).eq("id", id);
+    requireNoError(error);
+  } else {
+    const { count, error: countError } = await supabase
+      .from(VEHICLES_TABLE)
+      .select("id", { count: "exact", head: true });
+    requireNoError(countError);
 
-  await db
-    .prepare(
-      `INSERT INTO vehicles (
-        id, name, year, km, fuel, transmission, price, features, sort_order, created_at, updated_at
-      ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?10)
-      ON CONFLICT(id) DO UPDATE SET
-        name = excluded.name,
-        year = excluded.year,
-        km = excluded.km,
-        fuel = excluded.fuel,
-        transmission = excluded.transmission,
-        price = excluded.price,
-        features = excluded.features,
-        updated_at = excluded.updated_at`,
-    )
-    .bind(
-      vehicle.id,
-      vehicle.name,
-      vehicle.year,
-      vehicle.km,
-      vehicle.fuel,
-      vehicle.transmission,
-      vehicle.price,
-      vehicle.features,
-      sortOrder ?? 0,
-      now,
-    )
-    .run();
+    const { error } = await supabase.from(VEHICLES_TABLE).insert({
+      ...vehicle,
+      sort_order: Number(count || 0),
+      created_at: now,
+    });
+    requireNoError(error);
+  }
 
   return getVehicleById(vehicle.id);
 }
 
 export async function deleteVehicle(id: string) {
-  await ensureSchema();
-  const db = await getDb();
-  const bucket = await getBucket();
-  const media = await db
-    .prepare("SELECT key FROM media WHERE vehicle_id = ?1")
-    .bind(id)
-    .all<{ key: string }>();
+  await ensureDefaults();
+  const supabase = getSupabase();
+  const bucket = getStorageBucket();
+  const { data: media, error: mediaError } = await supabase
+    .from(MEDIA_TABLE)
+    .select("key")
+    .eq("vehicle_id", id);
+  requireNoError(mediaError);
 
-  await Promise.all(media.results.map((item) => bucket.delete(item.key)));
-  await db.prepare("DELETE FROM media WHERE vehicle_id = ?1").bind(id).run();
-  await db.prepare("DELETE FROM vehicles WHERE id = ?1").bind(id).run();
+  const keys = ((media || []) as Pick<MediaRow, "key">[]).map((item) => item.key);
+  if (keys.length) {
+    const { error } = await supabase.storage.from(bucket).remove(keys);
+    requireNoError(error);
+  }
+
+  const { error } = await supabase.from(VEHICLES_TABLE).delete().eq("id", id);
+  requireNoError(error);
 }
 
 export async function saveVehicleMedia(vehicleId: string, file: File, kind: "image" | "video") {
-  await ensureSchema();
+  await ensureDefaults();
   const vehicle = await getVehicleById(vehicleId);
   if (!vehicle) throw new Error("Vehículo no encontrado.");
 
@@ -420,60 +374,73 @@ export async function saveVehicleMedia(vehicleId: string, file: File, kind: "ima
 
   const safeName = slugify(file.name.replace(/\.[^.]+$/, "")) || kind;
   const key = `vehicles/${vehicleId}/${kind}/${crypto.randomUUID()}-${safeName}`;
-  const bucket = await getBucket();
-  const db = await getDb();
-  await bucket.put(key, await file.arrayBuffer(), {
-    httpMetadata: { contentType },
+  const supabase = getSupabase();
+  const bucket = getStorageBucket();
+  const body = await file.arrayBuffer();
+  const { error: uploadError } = await supabase.storage.from(bucket).upload(key, body, {
+    contentType,
+    upsert: false,
   });
+  requireNoError(uploadError);
 
-  const maxSort = await db
-    .prepare("SELECT COALESCE(MAX(sort_order), -1) AS sortOrder FROM media WHERE vehicle_id = ?1")
-    .bind(vehicleId)
-    .first<{ sortOrder: number }>();
+  const { data: maxSort, error: sortError } = await supabase
+    .from(MEDIA_TABLE)
+    .select("sort_order")
+    .eq("vehicle_id", vehicleId)
+    .order("sort_order", { ascending: false })
+    .limit(1)
+    .maybeSingle<Pick<MediaRow, "sort_order">>();
+  requireNoError(sortError);
 
-  await db
-    .prepare(
-      `INSERT INTO media (
-        key, vehicle_id, kind, filename, content_type, size, sort_order, created_at
-      ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)`,
-    )
-    .bind(
-      key,
-      vehicleId,
-      kind,
-      file.name,
-      contentType,
-      file.size,
-      Number(maxSort?.sortOrder ?? -1) + 1,
-      new Date().toISOString(),
-    )
-    .run();
+  const { error: mediaError } = await supabase.from(MEDIA_TABLE).insert({
+    key,
+    vehicle_id: vehicleId,
+    kind,
+    filename: file.name,
+    content_type: contentType,
+    size: file.size,
+    sort_order: Number(maxSort?.sort_order ?? -1) + 1,
+    created_at: new Date().toISOString(),
+  });
+  requireNoError(mediaError);
 
   return getVehicleById(vehicleId);
 }
 
 export async function deleteMedia(key: string) {
-  await ensureSchema();
-  const bucket = await getBucket();
-  const db = await getDb();
-  await bucket.delete(key);
-  await db.prepare("DELETE FROM media WHERE key = ?1").bind(key).run();
+  await ensureDefaults();
+  const supabase = getSupabase();
+  const bucket = getStorageBucket();
+  const { error: storageError } = await supabase.storage.from(bucket).remove([key]);
+  requireNoError(storageError);
+
+  const { error: mediaError } = await supabase.from(MEDIA_TABLE).delete().eq("key", key);
+  requireNoError(mediaError);
 }
 
-export async function getMediaObject(key: string) {
-  await ensureSchema();
-  const db = await getDb();
-  const allowed = await db
-    .prepare("SELECT key FROM media WHERE key = ?1")
-    .bind(key)
-    .first<{ key: string }>();
+export async function getMediaObject(key: string): Promise<StoredMediaObject | null> {
+  await ensureDefaults();
+  const supabase = getSupabase();
+  const { data: allowed, error: mediaError } = await supabase
+    .from(MEDIA_TABLE)
+    .select("key, content_type")
+    .eq("key", key)
+    .maybeSingle<Pick<MediaRow, "key" | "content_type">>();
+  requireNoError(mediaError);
   if (!allowed) return null;
-  const bucket = await getBucket();
-  return bucket.get(key);
+
+  const { data, error } = await supabase.storage.from(getStorageBucket()).download(key);
+  requireNoError(error);
+  if (!data) return null;
+
+  return {
+    body: data.stream() as ReadableStream<Uint8Array>,
+    contentType: allowed.content_type || data.type || "application/octet-stream",
+  };
 }
 
 export async function addSubmission(input: Omit<LeadSubmission, "id" | "createdAt">) {
-  await ensureSchema();
+  await ensureDefaults();
   const required = [input.vehicle, input.date, input.time, input.name, input.phone, input.timeline];
   if (required.some((value) => !String(value || "").trim())) {
     throw new Error("Faltan datos obligatorios.");
@@ -496,64 +463,56 @@ export async function addSubmission(input: Omit<LeadSubmission, "id" | "createdA
     createdAt: new Date().toISOString(),
   };
 
-  const db = await getDb();
-  await db
-    .prepare(
-      `INSERT INTO submissions (
-        id, vehicle, year, price, down, months, monthly, date, time, name, gmail, phone, initial, timeline, created_at
-      ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)`,
-    )
-    .bind(
-      submission.id,
-      submission.vehicle,
-      submission.year,
-      submission.price,
-      submission.down,
-      submission.months,
-      submission.monthly,
-      submission.date,
-      submission.time,
-      submission.name,
-      submission.gmail,
-      submission.phone,
-      submission.initial,
-      submission.timeline,
-      submission.createdAt,
-    )
-    .run();
+  const { error } = await getSupabase().from(SUBMISSIONS_TABLE).insert({
+    id: submission.id,
+    vehicle: submission.vehicle,
+    year: submission.year,
+    price: submission.price,
+    down: submission.down,
+    months: submission.months,
+    monthly: submission.monthly,
+    date: submission.date,
+    time: submission.time,
+    name: submission.name,
+    gmail: submission.gmail,
+    phone: submission.phone,
+    initial: submission.initial,
+    timeline: submission.timeline,
+    created_at: submission.createdAt,
+  });
+  requireNoError(error);
 
   return submission;
 }
 
 export async function listSubmissions() {
-  let rows: D1Result<LeadRow>;
-
   try {
-    await ensureSchema();
-    const db = await getDb();
-    rows = await db
-      .prepare("SELECT * FROM submissions ORDER BY created_at DESC")
-      .all<LeadRow>();
+    await ensureDefaults();
+    const { data, error } = await getSupabase()
+      .from(SUBMISSIONS_TABLE)
+      .select("*")
+      .order("created_at", { ascending: false });
+    requireNoError(error);
+
+    return ((data || []) as LeadRow[]).map((row) => ({
+      id: row.id,
+      vehicle: row.vehicle,
+      year: row.year,
+      price: Number(row.price || 0),
+      down: Number(row.down || 0),
+      months: Number(row.months || 0),
+      monthly: Number(row.monthly || 0),
+      date: row.date,
+      time: row.time,
+      name: row.name,
+      gmail: row.gmail,
+      phone: row.phone,
+      initial: row.initial,
+      timeline: row.timeline,
+      createdAt: row.created_at,
+    }));
   } catch (error) {
-    if (isMissingBinding(error)) return [];
+    if (isMissingSupabaseConfig(error)) return [];
     throw error;
   }
-
-  return rows.results.map((row) => ({
-    id: row.id,
-    vehicle: row.vehicle,
-    year: row.year,
-    price: Number(row.price || 0),
-    down: Number(row.down || 0),
-    months: Number(row.months || 0),
-    monthly: Number(row.monthly || 0),
-    date: row.date,
-    time: row.time,
-    name: row.name,
-    gmail: row.gmail,
-    phone: row.phone,
-    initial: row.initial,
-    timeline: row.timeline,
-    createdAt: row.created_at,
-  }));
 }
