@@ -1,3 +1,12 @@
+export type VehicleMedia = {
+  key: string;
+  url: string;
+  kind: "image" | "video";
+  filename: string;
+  contentType: string;
+  size: number;
+};
+
 export type Vehicle = {
   id: string;
   name: string;
@@ -9,7 +18,9 @@ export type Vehicle = {
   features: string;
   video?: string;
   videoStorageKey?: string;
+  videoMedia?: VehicleMedia | null;
   images?: string[];
+  imageMedia?: VehicleMedia[];
 };
 
 export type SiteSettings = {
@@ -71,11 +82,6 @@ export type SiteSettings = {
   simulatorDisclaimer: string;
 };
 
-export type AdminCredentials = {
-  username: string;
-  password: string;
-};
-
 export type LeadSubmission = {
   id: string;
   vehicle: string;
@@ -106,6 +112,7 @@ export const defaultVehicles: Vehicle[] = [
     features:
       "Motor 2.5 L\nCámara de reversa\nAsientos de piel\nPantalla con Apple CarPlay",
     images: [],
+    imageMedia: [],
   },
 ];
 
@@ -121,7 +128,7 @@ export const defaultSettings: SiteSettings = {
   businessDescription:
     "En El Tanque Motors te ayudamos a encontrar seminuevos seleccionados, con proceso claro y opciones de financiamiento pensadas para tu compra.",
   contactPhone: "809-747-9704",
-  contactAddress: "Bávaro, Punta Cana – Esquina Av. Barceló con Blvd. Turístico del Este",
+  contactAddress: "Bávaro, Punta Cana - Esquina Av. Barceló con Blvd. Turístico del Este",
   contactHours: "Lunes a viernes de 8:30 AM a 5:30 PM · Sábados de 9:00 AM a 4:00 PM",
   homeCtaLabel: "Contactanos",
   vehicleHeroEyebrow: "TU PRÓXIMO VEHÍCULO ESTÁ AQUÍ",
@@ -167,7 +174,7 @@ export const defaultSettings: SiteSettings = {
   simulatorEyebrow: "SIMULADOR DE PAGO",
   simulatorTitlePrefix: "Simulador de pago",
   simulatorImportant:
-    "Importante: Esta simulación es un calculo de mensualidades aproximadas, no es una cotización, no incluye costo de seguro ni comisión por apertura.",
+    "Importante: Esta simulación es un cálculo de mensualidades aproximadas, no es una cotización, no incluye costo de seguro ni comisión por apertura.",
   simulatorWarning: "precios y condiciones sujetos a cambios sin previo aviso.",
   downPaymentLabel: "Enganche inicial",
   downAmountLabel: "Monto de enganche con",
@@ -178,211 +185,18 @@ export const defaultSettings: SiteSettings = {
     "*Cálculo informativo. La mensualidad final depende de aprobación y condiciones de crédito.",
 };
 
-export const storageKeys = {
-  vehicles: "tanqueMotors.vehicles",
-  activeVehicleId: "tanqueMotors.activeVehicleId",
-  settings: "tanqueMotors.settings",
-  adminCredentials: "tanqueMotors.adminCredentials",
-  submissions: "tanqueMotors.submissions",
-  mediaDb: "tanqueMotors.mediaDb",
-  mediaStore: "vehicleMedia",
-};
-
-function canUseStorage() {
-  return typeof window !== "undefined";
+export function money(value: number) {
+  return `RD$${new Intl.NumberFormat("es-DO", {
+    maximumFractionDigits: 0,
+  }).format(value)}`;
 }
 
-export function loadVehicles() {
-  if (!canUseStorage()) return defaultVehicles;
-  const raw = window.localStorage.getItem(storageKeys.vehicles);
-  if (!raw) return defaultVehicles;
-
-  try {
-    const parsed = JSON.parse(raw) as Vehicle[];
-    if (!Array.isArray(parsed) || !parsed.length) return defaultVehicles;
-    return parsed.map((vehicle, index) => ({
-      ...defaultVehicles[0],
-      ...vehicle,
-      id: vehicle.id || `vehiculo-${index + 1}`,
-      video:
-        vehicle.videoStorageKey || vehicle.video?.startsWith("blob:")
-          ? undefined
-          : vehicle.video,
-      images: Array.isArray(vehicle.images) ? vehicle.images : [],
-    }));
-  } catch {
-    return defaultVehicles;
-  }
-}
-
-export function saveVehicles(vehicles: Vehicle[]) {
-  if (!canUseStorage()) return;
-  window.localStorage.setItem(storageKeys.vehicles, JSON.stringify(vehicles));
-}
-
-function openMediaDb() {
-  return new Promise<IDBDatabase>((resolve, reject) => {
-    const request = window.indexedDB.open(storageKeys.mediaDb, 1);
-    request.onupgradeneeded = () => {
-      const db = request.result;
-      if (!db.objectStoreNames.contains(storageKeys.mediaStore)) {
-        db.createObjectStore(storageKeys.mediaStore);
-      }
-    };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(new Error("No se pudo abrir la base de videos."));
-  });
-}
-
-async function withMediaStore<T>(
-  mode: IDBTransactionMode,
-  handler: (store: IDBObjectStore) => IDBRequest<T>,
-) {
-  const db = await openMediaDb();
-  return new Promise<T>((resolve, reject) => {
-    const transaction = db.transaction(storageKeys.mediaStore, mode);
-    const store = transaction.objectStore(storageKeys.mediaStore);
-    const request = handler(store);
-
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () =>
-      reject(new Error("No se pudo completar la operación del video."));
-    transaction.oncomplete = () => db.close();
-    transaction.onerror = () => {
-      db.close();
-      reject(new Error("No se pudo guardar el video."));
-    };
-  });
-}
-
-export async function saveVehicleVideo(vehicleId: string, file: File) {
-  if (!canUseStorage()) {
-    throw new Error("El navegador no permite guardar videos en este momento.");
-  }
-
-  const key = `video:${vehicleId}`;
-  await withMediaStore("readwrite", (store) => store.put(file, key));
-  return key;
-}
-
-export async function loadVehicleVideoUrl(storageKey: string) {
-  if (!canUseStorage()) return undefined;
-  const file = await withMediaStore<File | Blob | undefined>("readonly", (store) =>
-    store.get(storageKey),
-  );
-
-  if (!file) return undefined;
-  return URL.createObjectURL(file);
-}
-
-export async function deleteVehicleVideo(storageKey?: string) {
-  if (!canUseStorage() || !storageKey) return;
-  await withMediaStore("readwrite", (store) => store.delete(storageKey));
-}
-
-export async function hydrateVehiclesWithMedia(vehicles: Vehicle[]) {
-  const hydrated = await Promise.all(
-    vehicles.map(async (vehicle) => {
-      if (!vehicle.videoStorageKey) return vehicle;
-      const resolvedVideo = await loadVehicleVideoUrl(vehicle.videoStorageKey);
-      return {
-        ...vehicle,
-        video: resolvedVideo,
-      };
-    }),
-  );
-
-  return hydrated;
-}
-
-export function loadActiveVehicleId() {
-  if (!canUseStorage()) return defaultVehicles[0].id;
-  return (
-    window.localStorage.getItem(storageKeys.activeVehicleId) ?? defaultVehicles[0].id
-  );
-}
-
-export function saveActiveVehicleId(id: string) {
-  if (!canUseStorage()) return;
-  window.localStorage.setItem(storageKeys.activeVehicleId, id);
-}
-
-export function loadSettings() {
-  if (!canUseStorage()) return defaultSettings;
-  const raw = window.localStorage.getItem(storageKeys.settings);
-  if (!raw) return defaultSettings;
-
-  try {
-    const parsed = { ...defaultSettings, ...(JSON.parse(raw) as SiteSettings) };
-
-    if (parsed.contactPhone === "809-000-0000") {
-      parsed.contactPhone = defaultSettings.contactPhone;
-    }
-
-    if (parsed.contactAddress === "Santo Domingo, República Dominicana") {
-      parsed.contactAddress = defaultSettings.contactAddress;
-    }
-
-    return parsed;
-  } catch {
-    return defaultSettings;
-  }
-}
-
-export function saveSettings(settings: SiteSettings) {
-  if (!canUseStorage()) return;
-  window.localStorage.setItem(storageKeys.settings, JSON.stringify(settings));
-}
-
-export function loadAdminCredentials() {
-  if (!canUseStorage()) return null;
-  const raw = window.localStorage.getItem(storageKeys.adminCredentials);
-  if (!raw) return null;
-
-  try {
-    const parsed = JSON.parse(raw) as AdminCredentials;
-    if (!parsed.username || !parsed.password) return null;
-    return parsed;
-  } catch {
-    return null;
-  }
-}
-
-export function saveAdminCredentials(credentials: AdminCredentials) {
-  if (!canUseStorage()) return;
-  window.localStorage.setItem(
-    storageKeys.adminCredentials,
-    JSON.stringify(credentials),
-  );
-}
-
-export function clearAdminCredentials() {
-  if (!canUseStorage()) return;
-  window.localStorage.removeItem(storageKeys.adminCredentials);
-}
-
-export function loadSubmissions() {
-  if (!canUseStorage()) return [] as LeadSubmission[];
-  const raw = window.localStorage.getItem(storageKeys.submissions);
-  if (!raw) return [] as LeadSubmission[];
-
-  try {
-    const parsed = JSON.parse(raw) as LeadSubmission[];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [] as LeadSubmission[];
-  }
-}
-
-export function saveSubmissions(submissions: LeadSubmission[]) {
-  if (!canUseStorage()) return;
-  window.localStorage.setItem(
-    storageKeys.submissions,
-    JSON.stringify(submissions),
-  );
-}
-
-export function addSubmission(submission: LeadSubmission) {
-  const current = loadSubmissions();
-  saveSubmissions([submission, ...current]);
+export function slugify(text: string) {
+  return text
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 48);
 }

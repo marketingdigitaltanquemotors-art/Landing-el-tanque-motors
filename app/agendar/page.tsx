@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { addSubmission } from "../site-data";
 
 const weekdayHours = [
   "8:30 AM",
@@ -27,11 +26,6 @@ const saturdayHours = [
   "3:00 PM",
   "4:00 PM",
 ];
-
-const money = (value: number) =>
-  `RD$${new Intl.NumberFormat("es-DO", {
-    maximumFractionDigits: 0,
-  }).format(value)}`;
 
 function getDayInfo(value: string) {
   if (!value) return { isSunday: false, hours: [] as string[] };
@@ -131,6 +125,7 @@ export default function SchedulePage() {
   const [timeline, setTimeline] = useState("");
   const [initial, setInitial] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
 
   const dayInfo = useMemo(() => getDayInfo(date), [date]);
@@ -169,7 +164,7 @@ export default function SchedulePage() {
     );
   }
 
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
 
     if (!name.trim() || !phone.trim()) {
@@ -184,25 +179,42 @@ export default function SchedulePage() {
       return;
     }
 
-    addSubmission({
-      id: `lead-${Date.now()}`,
-      vehicle,
-      year,
-      price,
-      down,
-      months,
-      monthly,
-      date,
-      time,
-      name,
-      gmail,
-      phone,
-      initial,
-      timeline,
-      createdAt: new Date().toISOString(),
-    });
-    setFormError("");
-    setSubmitted(true);
+    setSubmitting(true);
+
+    try {
+      const response = await fetch("/api/leads", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          vehicle,
+          year,
+          price,
+          down,
+          months,
+          monthly,
+          date,
+          time,
+          name,
+          gmail,
+          phone,
+          initial,
+          timeline,
+        }),
+      });
+
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => ({}))) as { error?: string };
+        throw new Error(payload.error || "No se pudo registrar la cita.");
+      }
+
+      setFormError("");
+      setSubmitted(true);
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : "No se pudo registrar la cita.");
+      setSubmitted(false);
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -392,8 +404,8 @@ export default function SchedulePage() {
 
               {formError && <div className="schedule-alert">{formError}</div>}
 
-              <button className="btn schedule-submit" type="submit">
-                Confirmar cita <span>↗</span>
+              <button className="btn schedule-submit" type="submit" disabled={submitting}>
+                {submitting ? "Registrando..." : "Confirmar cita"} <span>↗</span>
               </button>
             </form>
 
