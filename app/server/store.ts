@@ -349,6 +349,90 @@ export async function deleteVehicle(id: string) {
   requireNoError(error);
 }
 
+function validateMediaUpload(
+  contentType: string,
+  size: number,
+  kind: "image" | "video",
+) {
+  if (kind === "image" && !contentType.startsWith("image/")) {
+    throw new Error("Solo se permiten imágenes.");
+  }
+  if (kind === "video" && contentType !== "video/mp4") {
+    throw new Error("Solo se permiten videos MP4.");
+  }
+  if (kind === "image" && size > 8 * 1024 * 1024) {
+    throw new Error("Cada imagen debe pesar menos de 8 MB.");
+  }
+  if (kind === "video" && size > 120 * 1024 * 1024) {
+    throw new Error("El video debe pesar menos de 120 MB.");
+  }
+}
+
+export async function createVehicleMediaUpload(
+  vehicleId: string,
+  input: { filename: string; contentType: string; size: number; kind: "image" | "video" },
+) {
+  await ensureDefaults();
+  const vehicle = await getVehicleById(vehicleId);
+  if (!vehicle) throw new Error("Vehículo no encontrado.");
+
+  const contentType = input.contentType || "application/octet-stream";
+  validateMediaUpload(contentType, input.size, input.kind);
+
+  const safeName = slugify(input.filename.replace(/\.[^.]+$/, "")) || input.kind;
+  const key = `vehicles/${vehicleId}/${input.kind}/${crypto.randomUUID()}-${safeName}`;
+  const { data, error } = await getSupabase()
+    .storage.from(getStorageBucket())
+    .createSignedUploadUrl(key, { upsert: false });
+  requireNoError(error);
+  if (!data?.signedUrl) throw new Error("No se pudo preparar la carga del archivo.");
+
+  return { key, uploadUrl: data.signedUrl };
+}
+
+export async function completeVehicleMediaUpload(
+  vehicleId: string,
+  input: { key: string; filename: string; contentType: string; size: number; kind: "image" | "video" },
+) {
+  await ensureDefaults();
+  const vehicle = await getVehicleById(vehicleId);
+  if (!vehicle) throw new Error("Vehículo no encontrado.");
+
+  const contentType = input.contentType || "application/octet-stream";
+  validateMediaUpload(contentType, input.size, input.kind);
+  const allowedPrefix = `vehicles/${vehicleId}/${input.kind}/`;
+  if (!input.key.startsWith(allowedPrefix)) {
+    throw new Error("Archivo inválido.");
+  }
+
+  if (input.kind === "video" && vehicle.videoStorageKey) {
+    await deleteMedia(vehicle.videoStorageKey);
+  }
+
+  const { data: maxSort, error: sortError } = await getSupabase()
+    .from(MEDIA_TABLE)
+    .select("sort_order")
+    .eq("vehicle_id", vehicleId)
+    .order("sort_order", { ascending: false })
+    .limit(1)
+    .maybeSingle<Pick<MediaRow, "sort_order">>();
+  requireNoError(sortError);
+
+  const { error: mediaError } = await getSupabase().from(MEDIA_TABLE).insert({
+    key: input.key,
+    vehicle_id: vehicleId,
+    kind: input.kind,
+    filename: input.filename,
+    content_type: contentType,
+    size: input.size,
+    sort_order: Number(maxSort?.sort_order ?? -1) + 1,
+    created_at: new Date().toISOString(),
+  });
+  requireNoError(mediaError);
+
+  return getVehicleById(vehicleId);
+}
+
 export async function saveVehicleMedia(vehicleId: string, file: File, kind: "image" | "video") {
   await ensureDefaults();
   const vehicle = await getVehicleById(vehicleId);
