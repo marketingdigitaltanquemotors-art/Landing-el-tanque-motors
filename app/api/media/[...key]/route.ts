@@ -17,7 +17,7 @@ export async function GET(
   return new Response(object.body, {
     headers: {
       "cache-control": "public, max-age=31536000, immutable",
-      "content-type": object.httpMetadata?.contentType || "application/octet-stream",
+      "content-type": object.contentType,
     },
   });
 }
