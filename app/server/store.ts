@@ -109,7 +109,9 @@ function isMissingSupabaseConfig(error: unknown) {
 }
 
 function mediaUrl(key: string) {
-  return `/api/media/${key.split("/").map(encodeURIComponent).join("/")}`;
+  const { url, bucket } = getSupabaseConfig();
+  const encodedKey = key.split("/").map(encodeURIComponent).join("/");
+  return `${url}/storage/v1/object/public/${encodeURIComponent(bucket)}/${encodedKey}`;
 }
 
 function requireNoError(error: { message: string } | null) {
@@ -360,11 +362,8 @@ function validateMediaUpload(
   if (kind === "video" && contentType !== "video/mp4") {
     throw new Error("Solo se permiten videos MP4.");
   }
-  if (kind === "image" && size > 8 * 1024 * 1024) {
-    throw new Error("Cada imagen debe pesar menos de 8 MB.");
-  }
-  if (kind === "video" && size > 120 * 1024 * 1024) {
-    throw new Error("El video debe pesar menos de 120 MB.");
+  if (kind === "image" && size > 15 * 1024 * 1024) {
+    throw new Error("Cada imagen debe pesar menos de 15 MB.");
   }
 }
 
@@ -445,11 +444,8 @@ export async function saveVehicleMedia(vehicleId: string, file: File, kind: "ima
   if (kind === "video" && contentType !== "video/mp4") {
     throw new Error("Solo se permiten videos MP4.");
   }
-  if (kind === "image" && file.size > 8 * 1024 * 1024) {
-    throw new Error("Cada imagen debe pesar menos de 8 MB.");
-  }
-  if (kind === "video" && file.size > 120 * 1024 * 1024) {
-    throw new Error("El video debe pesar menos de 120 MB.");
+  if (kind === "image" && file.size > 15 * 1024 * 1024) {
+    throw new Error("Cada imagen debe pesar menos de 15 MB.");
   }
 
   if (kind === "video" && vehicle.videoStorageKey) {
