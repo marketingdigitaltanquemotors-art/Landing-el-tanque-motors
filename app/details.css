@@ -570,7 +570,7 @@ footer a {
 }
 .single-vehicle .tile-media {
   height: auto;
-  min-height: 430px;
+  min-height: 370px;
 }
 .single-vehicle .tile-info {
   display: flex;
@@ -672,7 +672,7 @@ footer a {
 }
 @media (max-width: 850px) {
   .single-vehicle .tile-media {
-    min-height: 320px;
+    min-height: 280px;
   }
   .single-vehicle .tile-info {
     padding: 32px;
