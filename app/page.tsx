@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { getSiteData } from "./server/store";
 import { defaultSettings, money } from "./site-data";
 
@@ -80,24 +79,13 @@ export default async function Home() {
             <h2>Vehículos publicados</h2>
           </div>
           <p>
-            Cada unidad tiene su propia página con fotos, video, características y
-            simulador de pago.
+            Cada unidad tiene su propia página con fotos, características y simulador
+            de pago.
           </p>
         </div>
         <div className="catalog-grid">
           {vehicles.map((vehicle) => (
             <article className="catalog-card" key={vehicle.id}>
-              <div className="catalog-media">
-                {vehicle.images?.[0] ? (
-                  <img src={vehicle.images[0]} alt={`${vehicle.name} ${vehicle.year}`} />
-                ) : vehicle.video ? (
-                  <video src={vehicle.video} muted playsInline preload="metadata" />
-                ) : (
-                  <div className="mini-car">
-                    <div />
-                  </div>
-                )}
-              </div>
               <div className="catalog-body">
                 <p>
                   {vehicle.year} · {vehicle.transmission}
@@ -111,9 +99,6 @@ export default async function Home() {
                   <span>{resolvedSettings.priceLabel}</span>
                   <strong>{money(vehicle.price)}</strong>
                 </div>
-                <Link className="btn catalog-btn" href={`/vehiculo/${vehicle.id}`}>
-                  Ver vehículo <span>↗</span>
-                </Link>
               </div>
             </article>
           ))}
