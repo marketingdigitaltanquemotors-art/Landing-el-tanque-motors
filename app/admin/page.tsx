@@ -27,6 +27,13 @@ type SettingsField = {
   multiline?: boolean;
 };
 
+type UploadProgress = {
+  kind: "image" | "video";
+  current: number;
+  total: number;
+  percent: number;
+};
+
 const primarySettingsFields: SettingsField[] = [
   { key: "announcement", label: "Barra superior" },
   { key: "homeEyebrow", label: "Texto superior portada" },
@@ -109,6 +116,35 @@ async function readJson<T>(response: Response): Promise<T> {
   return payload;
 }
 
+function uploadWithProgress(
+  formData: FormData,
+  onProgress: (percent: number) => void,
+): Promise<{ vehicle: Vehicle }> {
+  return new Promise((resolve, reject) => {
+    const request = new XMLHttpRequest();
+    request.open("POST", "/api/admin/media");
+    request.withCredentials = true;
+    request.upload.onprogress = (event) => {
+      if (event.lengthComputable) {
+        onProgress(Math.round((event.loaded / event.total) * 100));
+      }
+    };
+    request.onload = () => {
+      const payload = JSON.parse(request.responseText || "{}") as {
+        vehicle?: Vehicle;
+        error?: string;
+      };
+      if (request.status >= 200 && request.status < 300 && payload.vehicle) {
+        resolve({ vehicle: payload.vehicle });
+        return;
+      }
+      reject(new Error(payload.error || "No se pudo subir el archivo."));
+    };
+    request.onerror = () => reject(new Error("No se pudo subir el archivo."));
+    request.send(formData);
+  });
+}
+
 export default function AdminPage() {
   const [ready, setReady] = useState(false);
   const [loggedIn, setLoggedIn] = useState(false);
@@ -123,6 +159,7 @@ export default function AdminPage() {
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
   const [authConfigured, setAuthConfigured] = useState(true);
+  const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null);
 
   useEffect(() => {
     async function hydrate() {
@@ -306,20 +343,22 @@ export default function AdminPage() {
     if (!selectedVehicle || !files.length) return;
 
     setSaving(true);
+    setUploadProgress({ kind, current: 1, total: files.length, percent: 0 });
     try {
       let updatedVehicle = selectedVehicle;
-      for (const file of files) {
+      for (const [index, file] of files.entries()) {
         const formData = new FormData();
         formData.append("vehicleId", selectedVehicle.id);
         formData.append("kind", kind);
         formData.append("file", file);
-        const payload = await readJson<{ vehicle: Vehicle }>(
-          await fetch("/api/admin/media", {
-            method: "POST",
-            credentials: "include",
-            body: formData,
-          }),
-        );
+        const payload = await uploadWithProgress(formData, (filePercent) => {
+          setUploadProgress({
+            kind,
+            current: index + 1,
+            total: files.length,
+            percent: Math.round(((index + filePercent / 100) / files.length) * 100),
+          });
+        });
         updatedVehicle = payload.vehicle;
       }
 
@@ -332,6 +371,7 @@ export default function AdminPage() {
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "No se pudo subir el archivo.");
     } finally {
+      setUploadProgress(null);
       setSaving(false);
     }
   }
@@ -358,6 +398,47 @@ export default function AdminPage() {
     } finally {
       setSaving(false);
     }
+  }
+
+  function renderUploadProgress(kind: "image" | "video") {
+    if (!uploadProgress || uploadProgress.kind !== kind) return null;
+    const isImage = kind === "image";
+
+    return (
+      <div
+        role="status"
+        aria-live="polite"
+        style={{ display: "grid", gap: 8, marginTop: 12, width: "100%" }}
+      >
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+          <span>
+            {isImage
+              ? `Subiendo fotos (${uploadProgress.current}/${uploadProgress.total})`
+              : "Subiendo video"}
+          </span>
+          <strong>{uploadProgress.percent}%</strong>
+        </div>
+        <div
+          aria-label={`Progreso de carga: ${uploadProgress.percent}%`}
+          style={{
+            height: 8,
+            overflow: "hidden",
+            borderRadius: 999,
+            background: "#e1ddd4",
+          }}
+        >
+          <div
+            style={{
+              width: `${uploadProgress.percent}%`,
+              height: "100%",
+              borderRadius: "inherit",
+              background: "#ff5a1f",
+              transition: "width 160ms ease",
+            }}
+          />
+        </div>
+      </div>
+    );
   }
 
   function renderSettingsFields(fields: SettingsField[]) {
@@ -653,6 +734,7 @@ export default function AdminPage() {
                         </button>
                       )}
                     </div>
+                    {renderUploadProgress("video")}
                   </div>
 
                   <div className="admin-media-card">
@@ -686,6 +768,7 @@ export default function AdminPage() {
                         Subir fotos
                       </label>
                     </div>
+                    {renderUploadProgress("image")}
                   </div>
                 </div>
               </div>
