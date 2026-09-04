@@ -43,13 +43,13 @@ export default function VehicleClient({ vehicle, settings }: VehicleClientProps)
     if (!video) return;
 
     const observer = new IntersectionObserver(
-      async ([entry]) => {
+      ([entry]) => {
         if (!videoRef.current) return;
 
         if (entry.isIntersecting) {
           try {
-            videoRef.current.muted = false;
-            await videoRef.current.play();
+            videoRef.current.muted = true;
+            videoRef.current.play().catch(() => undefined);
           } catch {
             return;
           }
@@ -57,7 +57,7 @@ export default function VehicleClient({ vehicle, settings }: VehicleClientProps)
           videoRef.current.pause();
         }
       },
-      { threshold: 0.55 },
+      { threshold: 0.25 },
     );
 
     observer.observe(video);
@@ -124,6 +124,9 @@ export default function VehicleClient({ vehicle, settings }: VehicleClientProps)
                     ref={videoRef}
                     src={vehicle.video}
                     controls
+                    autoPlay
+                    muted
+                    loop
                     playsInline
                     preload="metadata"
                   />
