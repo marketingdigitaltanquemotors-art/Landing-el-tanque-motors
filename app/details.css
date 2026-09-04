@@ -1621,6 +1621,43 @@ footer {
   border-color: #1f7a3f;
   color: #1f7a3f;
 }
+.admin-public-link {
+  display: grid;
+  grid-template-columns: minmax(190px, 1fr) minmax(230px, 1.5fr) auto;
+  align-items: end;
+  gap: 14px;
+  margin: 22px 0;
+  padding: 16px;
+  border: 1px solid #f1c9aa;
+  background: #fff7f0;
+}
+.admin-public-link strong {
+  display: block;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.admin-public-link p {
+  margin: 5px 0 0;
+  font-size: 12px;
+  color: #5e5a53;
+}
+.admin-public-link input {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+  font: 13px Arial, Helvetica, sans-serif;
+}
+.admin-public-link .admin-topbar-actions {
+  gap: 8px;
+}
+.admin-public-link .outline-btn,
+.admin-public-link .btn-small {
+  margin: 0;
+  white-space: nowrap;
+}
 .admin-media-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1669,6 +1706,19 @@ footer {
 }
 .admin-media-actions .admin-upload {
   margin-top: 0;
+}
+.upload-progress {
+  display: grid;
+  gap: 7px;
+  margin-top: 14px;
+  color: #4f493f;
+  font-size: 13px;
+  font-weight: 700;
+}
+.upload-progress progress {
+  width: 100%;
+  height: 9px;
+  accent-color: var(--orange);
 }
 .admin-delete-media {
   background: #fff3f1;
@@ -1763,6 +1813,10 @@ footer {
   }
   .admin-media-grid {
     grid-template-columns: 1fr;
+  }
+  .admin-public-link {
+    grid-template-columns: 1fr;
+    align-items: stretch;
   }
 }
 @media (max-width: 650px) {

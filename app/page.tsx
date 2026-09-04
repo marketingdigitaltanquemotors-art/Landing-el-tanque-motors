@@ -1,10 +1,10 @@
 import { getSiteData } from "./server/store";
-import { defaultSettings, money } from "./site-data";
+import { defaultSettings } from "./site-data";
 
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
-  const { settings, vehicles } = await getSiteData();
+  const { settings } = await getSiteData();
   const resolvedSettings = { ...defaultSettings, ...settings };
   const contactPhoneDigits = resolvedSettings.contactPhone.replace(/\D/g, "");
   const contactLink = `https://wa.me/1${contactPhoneDigits}`;
@@ -14,7 +14,6 @@ export default async function Home() {
       <div className="announcement">{resolvedSettings.announcement}</div>
       <nav className="nav">
         <div className="nav-links">
-          <a href="#inventario">Inventario</a>
           <a href="#beneficios">Beneficios</a>
           <a href="#contacto">Contacto</a>
         </div>
@@ -69,39 +68,6 @@ export default async function Home() {
               {resolvedSettings.homeCtaLabel} <span>↗</span>
             </a>
           </div>
-        </div>
-      </section>
-
-      <section className="inventory catalog-page" id="inventario">
-        <div className="catalog-heading">
-          <div>
-            <p className="eyebrow">INVENTARIO DISPONIBLE</p>
-            <h2>Vehículos publicados</h2>
-          </div>
-          <p>
-            Cada unidad tiene su propia página con fotos, características y simulador
-            de pago.
-          </p>
-        </div>
-        <div className="catalog-grid">
-          {vehicles.map((vehicle) => (
-            <article className="catalog-card" key={vehicle.id}>
-              <div className="catalog-body">
-                <p>
-                  {vehicle.year} · {vehicle.transmission}
-                </p>
-                <h3>{vehicle.name}</h3>
-                <div className="specs">
-                  <span>{vehicle.km}</span>
-                  <span>{vehicle.fuel}</span>
-                </div>
-                <div className="vehicle-price">
-                  <span>{resolvedSettings.priceLabel}</span>
-                  <strong>{money(vehicle.price)}</strong>
-                </div>
-              </div>
-            </article>
-          ))}
         </div>
       </section>
 
