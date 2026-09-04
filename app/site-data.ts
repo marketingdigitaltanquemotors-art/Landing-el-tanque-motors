@@ -117,16 +117,16 @@ export const defaultVehicles: Vehicle[] = [
 ];
 
 export const defaultSettings: SiteSettings = {
-  announcement: "SOLO PARA PERSONAS INTERESADAS EN COMPRAR VEHÍCULOS SEMINUEVOS",
+  announcement: "SOLO PARA PERSONAS INTERESADAS EN COMPRAR VEHÍCULOS USADOS",
   heading: "Maneja lo que siempre quisiste.",
   heroText:
     "Conoce este vehículo, descubre cada característica y encuentra un financiamiento flexible con una garantía que sí responde.",
   homeEyebrow: "BIENVENIDO A EL TANQUE MOTORS",
-  homeTitle: "Seminuevos listos para estrenar.",
+  homeTitle: "Usados listos para estrenar.",
   homeDescription:
     "Conoce nuestras unidades disponibles, compártelas fácilmente y encuentra el vehículo ideal con respaldo, financiamiento y atención personalizada.",
   businessDescription:
-    "En El Tanque Motors te ayudamos a encontrar seminuevos seleccionados, con proceso claro y opciones de financiamiento pensadas para tu compra.",
+    "En El Tanque Motors te ayudamos a encontrar usados seleccionados, con proceso claro y opciones de financiamiento pensadas para tu compra.",
   contactPhone: "809-747-9704",
   contactAddress: "Bávaro, Punta Cana - Esquina Av. Barceló con Blvd. Turístico del Este",
   contactHours: "Lunes a viernes de 8:30 AM a 5:30 PM · Sábados de 9:00 AM a 4:00 PM",
@@ -147,7 +147,7 @@ export const defaultSettings: SiteSettings = {
   trustWarrantyValue: "✓",
   trustWarrantyLabel: "GARANTÍA EL\nTANQUE MOTORS",
   benefitsEyebrow: "BENEFICIOS DE COMPRAR CON EL TANQUE MOTORS",
-  benefitsTitle: "Beneficios de comprar seminuevos",
+  benefitsTitle: "Beneficios de comprar usados",
   benefitFinanceTitle: "Financiamiento accesible",
   benefitFinanceText:
     "Opciones financieras y de arrendamiento que se ajustan a las necesidades de nuestros clientes.",
