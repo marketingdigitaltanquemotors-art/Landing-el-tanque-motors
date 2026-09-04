@@ -116,32 +116,29 @@ async function readJson<T>(response: Response): Promise<T> {
   return payload;
 }
 
-function uploadWithProgress(
-  formData: FormData,
+function uploadToSignedUrl(
+  uploadUrl: string,
+  file: File,
   onProgress: (percent: number) => void,
-): Promise<{ vehicle: Vehicle }> {
+): Promise<void> {
   return new Promise((resolve, reject) => {
     const request = new XMLHttpRequest();
-    request.open("POST", "/api/admin/media");
-    request.withCredentials = true;
+    request.open("PUT", uploadUrl);
+    request.setRequestHeader("content-type", file.type || "application/octet-stream");
     request.upload.onprogress = (event) => {
       if (event.lengthComputable) {
         onProgress(Math.round((event.loaded / event.total) * 100));
       }
     };
     request.onload = () => {
-      const payload = JSON.parse(request.responseText || "{}") as {
-        vehicle?: Vehicle;
-        error?: string;
-      };
-      if (request.status >= 200 && request.status < 300 && payload.vehicle) {
-        resolve({ vehicle: payload.vehicle });
+      if (request.status >= 200 && request.status < 300) {
+        resolve();
         return;
       }
-      reject(new Error(payload.error || "No se pudo subir el archivo."));
+      reject(new Error("Supabase no pudo guardar el archivo."));
     };
     request.onerror = () => reject(new Error("No se pudo subir el archivo."));
-    request.send(formData);
+    request.send(file);
   });
 }
 
@@ -347,11 +344,22 @@ export default function AdminPage() {
     try {
       let updatedVehicle = selectedVehicle;
       for (const [index, file] of files.entries()) {
-        const formData = new FormData();
-        formData.append("vehicleId", selectedVehicle.id);
-        formData.append("kind", kind);
-        formData.append("file", file);
-        const payload = await uploadWithProgress(formData, (filePercent) => {
+        const fileInfo = {
+          vehicleId: selectedVehicle.id,
+          kind,
+          filename: file.name,
+          contentType: file.type || "application/octet-stream",
+          size: file.size,
+        };
+        const signed = await readJson<{ key: string; uploadUrl: string }>(
+          await fetch("/api/admin/media", {
+            method: "POST",
+            credentials: "include",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ action: "sign", ...fileInfo }),
+          }),
+        );
+        await uploadToSignedUrl(signed.uploadUrl, file, (filePercent) => {
           setUploadProgress({
             kind,
             current: index + 1,
@@ -359,6 +367,14 @@ export default function AdminPage() {
             percent: Math.round(((index + filePercent / 100) / files.length) * 100),
           });
         });
+        const payload = await readJson<{ vehicle: Vehicle }>(
+          await fetch("/api/admin/media", {
+            method: "POST",
+            credentials: "include",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ action: "complete", key: signed.key, ...fileInfo }),
+          }),
+        );
         updatedVehicle = payload.vehicle;
       }
 
