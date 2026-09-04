@@ -14,7 +14,6 @@ export default async function Home() {
       <div className="announcement">{resolvedSettings.announcement}</div>
       <nav className="nav">
         <div className="nav-links">
-          <a href="#beneficios">Beneficios</a>
           <a href="#contacto">Contacto</a>
         </div>
         <a className="brand" href="#inicio">
@@ -54,10 +53,6 @@ export default async function Home() {
           </div>
 
           <div className="home-intro-panel">
-            <div className="heading-row">
-              <p className="eyebrow">TU PRÓXIMO VEHÍCULO ESTÁ AQUÍ</p>
-            </div>
-            <h1>{resolvedSettings.homeTitle}</h1>
             <p className="hero-text">{resolvedSettings.homeDescription}</p>
             <a
               className="btn home-cta"
@@ -71,27 +66,6 @@ export default async function Home() {
         </div>
       </section>
 
-      <section className="benefits-strip catalog-benefits" id="beneficios">
-        <p className="eyebrow">{resolvedSettings.benefitsEyebrow}</p>
-        <h3>{resolvedSettings.benefitsTitle}</h3>
-        <div className="benefits-grid">
-          <article>
-            <div className="benefit-icon">💵</div>
-            <h4>{resolvedSettings.benefitFinanceTitle}</h4>
-            <p>{resolvedSettings.benefitFinanceText}</p>
-          </article>
-          <article>
-            <div className="benefit-icon">🏅</div>
-            <h4>{resolvedSettings.benefitWarrantyTitle}</h4>
-            <p>{resolvedSettings.benefitWarrantyText}</p>
-          </article>
-          <article>
-            <div className="benefit-icon">🚗</div>
-            <h4>{resolvedSettings.benefitTradeInTitle}</h4>
-            <p>{resolvedSettings.benefitTradeInText}</p>
-          </article>
-        </div>
-      </section>
 
       <footer id="contacto">
         <a className="brand footer-brand" href="#inicio">
