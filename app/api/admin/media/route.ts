@@ -1,5 +1,11 @@
 import { jsonResponse, requireAdmin } from "../../../server/auth";
-import { deleteMedia, getVehicleById, saveVehicleMedia } from "../../../server/store";
+import {
+  completeVehicleMediaUpload,
+  createVehicleMediaUpload,
+  deleteMedia,
+  getVehicleById,
+  saveVehicleMedia,
+} from "../../../server/store";
 
 export const dynamic = "force-dynamic";
 
@@ -8,6 +14,46 @@ export async function POST(request: Request) {
   if (unauthorized) return unauthorized;
 
   try {
+    if (request.headers.get("content-type")?.includes("application/json")) {
+      const input = (await request.json()) as {
+        action?: string;
+        vehicleId?: string;
+        kind?: string;
+        key?: string;
+        filename?: string;
+        contentType?: string;
+        size?: number;
+      };
+      const vehicleId = String(input.vehicleId || "");
+      const kind = input.kind === "image" || input.kind === "video" ? input.kind : null;
+      if (!vehicleId || !kind) {
+        return jsonResponse({ error: "Archivo inválido." }, { status: 400 });
+      }
+
+      if (input.action === "sign") {
+        const upload = await createVehicleMediaUpload(vehicleId, {
+          kind,
+          filename: String(input.filename || "archivo"),
+          contentType: String(input.contentType || "application/octet-stream"),
+          size: Number(input.size || 0),
+        });
+        return jsonResponse(upload, { status: 201 });
+      }
+
+      if (input.action === "complete") {
+        const vehicle = await completeVehicleMediaUpload(vehicleId, {
+          kind,
+          key: String(input.key || ""),
+          filename: String(input.filename || "archivo"),
+          contentType: String(input.contentType || "application/octet-stream"),
+          size: Number(input.size || 0),
+        });
+        return jsonResponse({ vehicle }, { status: 201 });
+      }
+
+      return jsonResponse({ error: "Acción inválida." }, { status: 400 });
+    }
+
     const formData = await request.formData();
     const vehicleId = String(formData.get("vehicleId") || "");
     const kind = String(formData.get("kind") || "");
