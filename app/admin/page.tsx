@@ -539,7 +539,14 @@ export default function AdminPage() {
                   <div>
                     <h2>{selectedVehicle.name}</h2>
                     <p className="admin-mini-copy">
-                      Página pública: /vehiculo/{selectedVehicle.id}
+                      Página pública: {" "}
+                      <a
+                        href={`/vehiculo/${selectedVehicle.id}`}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Abrir página del vehículo ↗
+                      </a>
                     </p>
                   </div>
                   <div className="admin-topbar-actions">
