@@ -30,6 +30,18 @@ type VehicleClientProps = {
   settings: SiteSettings;
 };
 
+function renderHighlightedText(text: string) {
+  return text.split(/(\*[^*]+\*)/g).map((part, index) =>
+    part.startsWith("*") && part.endsWith("*") ? (
+      <span className="text-highlight" key={`highlight-${index}`}>
+        {part.slice(1, -1)}
+      </span>
+    ) : (
+      part
+    ),
+  );
+}
+
 export default function VehicleClient({ vehicle, settings }: VehicleClientProps) {
   const [open, setOpen] = useState(false);
   const [down, setDown] = useState(20);
@@ -212,7 +224,7 @@ export default function VehicleClient({ vehicle, settings }: VehicleClientProps)
                 <p>
                   {vehicle.year} · {vehicle.transmission.toUpperCase()}
                 </p>
-                <h3 className="vehicle-title">{vehicle.name}</h3>
+                <h3 className="vehicle-title">{renderHighlightedText(vehicle.name)}</h3>
                 <div className="specs">
                   <span>{vehicle.km}</span>
                   <span>{vehicle.fuel}</span>
@@ -224,7 +236,7 @@ export default function VehicleClient({ vehicle, settings }: VehicleClientProps)
                   ))}
                 </ul>
                 <div className="vehicle-price">
-                  <span>{settings.priceLabel}</span>
+                  <span>{renderHighlightedText(settings.priceLabel)}</span>
                   <strong>{money(vehicle.price)}</strong>
                 </div>
               </div>
