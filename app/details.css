@@ -1964,3 +1964,7 @@ footer {
     margin-top: 10px;
   }
 }
+/* Texto destacado desde el panel usando *asteriscos*. */
+.text-highlight {
+  color: var(--orange);
+}
