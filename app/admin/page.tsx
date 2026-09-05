@@ -35,6 +35,7 @@ type UploadProgress = {
 };
 
 const primarySettingsFields: SettingsField[] = [
+  { key: "heading", label: "Título principal de la página del vehículo" },
   { key: "announcement", label: "Barra superior" },
   { key: "homeEyebrow", label: "Texto superior portada" },
   { key: "homeTitle", label: "Título portada" },
@@ -47,7 +48,6 @@ const primarySettingsFields: SettingsField[] = [
 ];
 
 const vehicleSettingsFields: SettingsField[] = [
-  { key: "heading", label: "Título página vehículo" },
   { key: "vehicleHeroEyebrow", label: "Texto superior vehículo" },
   { key: "vehicleAvailabilityText", label: "Etiqueta sobre video" },
   { key: "quickQuoteEyebrow", label: "Encabezado cotización" },
