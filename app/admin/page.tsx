@@ -55,7 +55,7 @@ const vehicleSettingsFields: SettingsField[] = [
   { key: "quickQuoteButtonLabel", label: "Botón cotización" },
   { key: "galleryEyebrow", label: "Título galería" },
   { key: "featuresLabel", label: "Etiqueta características" },
-  { key: "priceLabel", label: "Etiqueta precio" },
+  { key: "priceLabel", label: "Etiqueta precio (usa *texto* para color)" },
   { key: "benefitsEyebrow", label: "Encabezado beneficios" },
   { key: "benefitsTitle", label: "Título beneficios" },
   { key: "benefitFinanceTitle", label: "Beneficio 1 título" },
@@ -667,6 +667,7 @@ export default function AdminPage() {
                 <div className="admin-form-grid">
                   <label>
                     Nombre del vehículo
+                    <small>Usa *texto* para mostrar esa parte en color naranja.</small>
                     <input
                       value={selectedVehicle.name}
                       onChange={(event) => updateVehicleLocal({ name: event.target.value })}
