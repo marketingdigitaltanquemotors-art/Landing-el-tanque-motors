@@ -242,8 +242,8 @@ export default function VehicleClient({ vehicle, settings }: VehicleClientProps)
             <span>{settings.trustMonthsLabel}</span>
           </div>
           <div>
-            <strong>{settings.trustDownValue}</strong>
-            <span>{settings.trustDownLabel}</span>
+            <strong>Desde un {settings.trustDownValue}</strong>
+            <span>de inicial</span>
           </div>
           <div>
             <strong>{settings.trustWarrantyValue}</strong>
