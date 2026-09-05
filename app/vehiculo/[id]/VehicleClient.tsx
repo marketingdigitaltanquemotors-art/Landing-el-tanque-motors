@@ -121,15 +121,7 @@ export default function VehicleClient({ vehicle, settings }: VehicleClientProps)
           <div className="heading-row">
             <p className="eyebrow">{settings.vehicleHeroEyebrow}</p>
           </div>
-          <h1 style={headingStyle}>
-            {settings.heading.split(" siempre ")[0]}
-            <br />
-            <em>
-              {settings.heading.includes(" siempre ")
-                ? "siempre " + settings.heading.split(" siempre ")[1]
-                : ""}
-            </em>
-          </h1>
+          <h1 style={headingStyle}>{renderHighlightedText(settings.heading)}</h1>
         </div>
       </section>
 
