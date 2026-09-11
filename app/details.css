@@ -1810,6 +1810,20 @@ footer {
   color: #6a645b;
   padding: 28px 16px !important;
 }
+.admin-remove-submission {
+  border: 1px solid #c74646;
+  background: #fff3f1;
+  color: #8c2f26;
+  padding: 8px 10px;
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.admin-remove-submission:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
 @media (max-width: 900px) {
   .schedule-layout {
     grid-template-columns: 1fr;

@@ -334,6 +334,29 @@ export default function AdminPage() {
     }
   }
 
+  async function removeSubmission(id: string) {
+    if (!window.confirm("¿Quieres eliminar esta cita? Esta acción no se puede deshacer.")) {
+      return;
+    }
+
+    setSaving(true);
+    setMessage("");
+    try {
+      await readJson<{ ok: boolean }>(
+        await fetch(`/api/admin/submissions/${id}`, {
+          method: "DELETE",
+          credentials: "include",
+        }),
+      );
+      setSubmissions((current) => current.filter((submission) => submission.id !== id));
+      setMessage("Cita eliminada.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "No se pudo eliminar la cita.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function uploadMedia(event: ChangeEvent<HTMLInputElement>, kind: "image" | "video") {
     const files = Array.from(event.target.files || []);
     event.target.value = "";
@@ -838,6 +861,7 @@ export default function AdminPage() {
                       <th>Teléfono</th>
                       <th>Inicial</th>
                       <th>Periodo</th>
+                      <th>Acción</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -854,11 +878,20 @@ export default function AdminPage() {
                           <td>{submission.phone}</td>
                           <td>{submission.initial}</td>
                           <td>{submission.timeline || "Sin dato"}</td>
+                          <td>
+                            <button
+                              className="admin-remove-submission"
+                              onClick={() => removeSubmission(submission.id)}
+                              disabled={saving}
+                            >
+                              Eliminar
+                            </button>
+                          </td>
                         </tr>
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={8} className="leads-empty">
+                        <td colSpan={9} className="leads-empty">
                           Todavía no hay formularios que coincidan con ese filtro.
                         </td>
                       </tr>

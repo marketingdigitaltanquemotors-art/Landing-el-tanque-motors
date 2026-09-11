@@ -596,3 +596,15 @@ export async function listSubmissions() {
     throw error;
   }
 }
+
+export async function deleteSubmission(id: string) {
+  const submissionId = id.trim();
+  if (!submissionId) throw new Error("Falta la cita a eliminar.");
+
+  await ensureDefaults();
+  const { error } = await getSupabase()
+    .from(SUBMISSIONS_TABLE)
+    .delete()
+    .eq("id", submissionId);
+  requireNoError(error);
+}
