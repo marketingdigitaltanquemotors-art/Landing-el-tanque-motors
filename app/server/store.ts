@@ -60,6 +60,16 @@ type LeadRow = {
   created_at: string;
 };
 
+export type PanelUser = {
+  id: string;
+  username: string;
+  passwordHash: string;
+  passwordSalt: string;
+  role: "admin" | "seller";
+  active: boolean;
+  createdAt: string;
+};
+
 type StoredMediaObject = {
   body: ReadableStream<Uint8Array>;
   contentType: string;
@@ -116,6 +126,47 @@ function mediaUrl(key: string) {
 
 function requireNoError(error: { message: string } | null) {
   if (error) throw new Error(error.message);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function panelUsersFromValue(value: unknown): PanelUser[] {
+  if (!isRecord(value) || !Array.isArray(value.panelUsers)) return [];
+  return value.panelUsers.flatMap((item) => {
+    if (!isRecord(item)) return [];
+    const role = item.role === "admin" ? "admin" : item.role === "seller" ? "seller" : null;
+    if (
+      !role ||
+      typeof item.id !== "string" ||
+      typeof item.username !== "string" ||
+      typeof item.passwordHash !== "string" ||
+      typeof item.passwordSalt !== "string"
+    ) {
+      return [];
+    }
+    return [{
+      id: item.id,
+      username: item.username,
+      passwordHash: item.passwordHash,
+      passwordSalt: item.passwordSalt,
+      role,
+      active: item.active !== false,
+      createdAt: typeof item.createdAt === "string" ? item.createdAt : "",
+    }];
+  });
+}
+
+async function getStoredSettingsValue() {
+  await ensureDefaults();
+  const { data, error } = await getSupabase()
+    .from(SETTINGS_TABLE)
+    .select("value")
+    .eq("id", "site")
+    .maybeSingle<{ value: Record<string, unknown> }>();
+  requireNoError(error);
+  return isRecord(data?.value) ? data.value : {};
 }
 
 function toMedia(row: MediaRow): VehicleMedia {
@@ -211,7 +262,10 @@ export async function getSettings() {
       .maybeSingle<{ value: SiteSettings }>();
     requireNoError(error);
 
-    return { ...defaultSettings, ...(data?.value || {}) };
+    const value: Record<string, unknown> = isRecord(data?.value) ? data.value : {};
+    // Never expose credential hashes through the public site settings endpoint.
+    const { panelUsers: _panelUsers, ...publicSettings } = value;
+    return { ...defaultSettings, ...publicSettings } as SiteSettings;
   } catch (error) {
     if (isMissingSupabaseConfig(error)) return defaultSettings;
     throw error;
@@ -220,14 +274,41 @@ export async function getSettings() {
 
 export async function saveSettings(settings: SiteSettings) {
   await ensureDefaults();
+  const storedValue = await getStoredSettingsValue();
   const { error } = await getSupabase().from(SETTINGS_TABLE).upsert({
     id: "site",
-    value: { ...defaultSettings, ...settings } as unknown as JsonValue,
+    // Conserva los usuarios del panel, que no forman parte de los textos editables.
+    value: { ...storedValue, ...defaultSettings, ...settings } as unknown as JsonValue,
     updated_at: new Date().toISOString(),
   });
   requireNoError(error);
 
   return getSettings();
+}
+
+export async function listPanelUsers() {
+  try {
+    return panelUsersFromValue(await getStoredSettingsValue());
+  } catch (error) {
+    if (isMissingSupabaseConfig(error)) return [];
+    throw error;
+  }
+}
+
+export async function savePanelUser(user: PanelUser) {
+  const storedValue = await getStoredSettingsValue();
+  const users = panelUsersFromValue(storedValue);
+  if (users.some((item) => item.username.toLowerCase() === user.username.toLowerCase())) {
+    throw new Error("Ese usuario ya existe.");
+  }
+
+  const { error } = await getSupabase().from(SETTINGS_TABLE).upsert({
+    id: "site",
+    value: { ...storedValue, panelUsers: [...users, user] } as unknown as JsonValue,
+    updated_at: new Date().toISOString(),
+  });
+  requireNoError(error);
+  return user;
 }
 
 export async function listVehicles() {

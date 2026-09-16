@@ -8,7 +8,7 @@ import {
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  return jsonResponse(getAdminConfigStatus());
+  return jsonResponse(await getAdminConfigStatus());
 }
 
 export async function POST(request: Request) {
@@ -16,7 +16,8 @@ export async function POST(request: Request) {
     .json()
     .catch(() => ({}))) as { username?: string; password?: string };
 
-  if (!(await verifyAdminLogin(String(username), String(password)))) {
+  const session = await verifyAdminLogin(String(username), String(password));
+  if (!session) {
     return jsonResponse(
       { error: "Credenciales inválidas o ADMIN_PASSWORD no configurado." },
       { status: 401 },
@@ -24,7 +25,7 @@ export async function POST(request: Request) {
   }
 
   return jsonResponse(
-    { ok: true },
-    { headers: { "set-cookie": await createAdminCookie(request) } },
+    { ok: true, user: { username: session.username, role: session.role } },
+    { headers: { "set-cookie": await createAdminCookie(request, session) } },
   );
 }

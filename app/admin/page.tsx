@@ -14,11 +14,20 @@ type SitePayload = {
   settings: SiteSettings;
   vehicles: Vehicle[];
   submissions: LeadSubmission[];
+  user?: { username: string; role: "admin" | "seller" };
 };
 
 type AdminLoginStatus = {
   configured: boolean;
   username: string;
+};
+
+type PanelUser = {
+  id: string;
+  username: string;
+  role: "admin" | "seller";
+  active: boolean;
+  createdAt: string;
 };
 
 type SettingsField = {
@@ -147,6 +156,11 @@ export default function AdminPage() {
   const [loggedIn, setLoggedIn] = useState(false);
   const [loginUser, setLoginUser] = useState("admin");
   const [loginPass, setLoginPass] = useState("");
+  const [currentUser, setCurrentUser] = useState<{ username: string; role: "admin" | "seller" } | null>(null);
+  const [panelUsers, setPanelUsers] = useState<PanelUser[]>([]);
+  const [newUserName, setNewUserName] = useState("");
+  const [newUserPassword, setNewUserPassword] = useState("");
+  const [newUserRole, setNewUserRole] = useState<"admin" | "seller">("seller");
   const [settings, setSettings] = useState<SiteSettings>(defaultSettings);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [selectedVehicleId, setSelectedVehicleId] = useState("");
@@ -177,7 +191,14 @@ export default function AdminPage() {
         setVehicles(payload.vehicles);
         setSelectedVehicleId(payload.vehicles[0]?.id || "");
         setSubmissions(payload.submissions);
+        setCurrentUser(payload.user || null);
         setLoggedIn(true);
+        if (payload.user?.role === "admin") {
+          const usersPayload = await readJson<{ users: PanelUser[] }>(
+            await fetch("/api/admin/users", { credentials: "include" }),
+          );
+          setPanelUsers(usersPayload.users);
+        }
       } catch (error) {
         setMessage(error instanceof Error ? error.message : "No se pudo cargar el panel.");
       } finally {
@@ -218,7 +239,7 @@ export default function AdminPage() {
     setMessage("");
 
     try {
-      await readJson<{ ok: boolean }>(
+      const loginPayload = await readJson<{ ok: boolean; user: { username: string; role: "admin" | "seller" } }>(
         await fetch("/api/admin/login", {
           method: "POST",
           credentials: "include",
@@ -234,8 +255,15 @@ export default function AdminPage() {
       setVehicles(payload.vehicles);
       setSelectedVehicleId(payload.vehicles[0]?.id || "");
       setSubmissions(payload.submissions);
+      setCurrentUser(loginPayload.user);
       setLoggedIn(true);
       setLoginPass("");
+      if (loginPayload.user.role === "admin") {
+        const usersPayload = await readJson<{ users: PanelUser[] }>(
+          await fetch("/api/admin/users", { credentials: "include" }),
+        );
+        setPanelUsers(usersPayload.users);
+      }
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "No se pudo iniciar sesión.");
     } finally {
@@ -246,6 +274,32 @@ export default function AdminPage() {
   async function logout() {
     await fetch("/api/admin/logout", { method: "POST", credentials: "include" });
     setLoggedIn(false);
+    setCurrentUser(null);
+    setPanelUsers([]);
+  }
+
+  async function createPanelUser() {
+    setSaving(true);
+    setMessage("");
+    try {
+      const payload = await readJson<{ user: PanelUser }>(
+        await fetch("/api/admin/users", {
+          method: "POST",
+          credentials: "include",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ username: newUserName, password: newUserPassword, role: newUserRole }),
+        }),
+      );
+      setPanelUsers((current) => [...current, payload.user]);
+      setNewUserName("");
+      setNewUserPassword("");
+      setNewUserRole("seller");
+      setMessage("Usuario creado.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "No se pudo crear el usuario.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function saveSettingsChanges() {
@@ -568,6 +622,9 @@ export default function AdminPage() {
               Los cambios se guardan en la base de datos y quedan disponibles para
               todos los visitantes del sitio.
             </p>
+            <p className="admin-mini-copy">
+              Sesión: <strong>{currentUser?.username}</strong> · {currentUser?.role === "admin" ? "Administrador" : "Vendedor"}
+            </p>
           </div>
           <div className="admin-topbar-actions">
             <button className="outline-btn admin-logout" onClick={logout}>
@@ -608,7 +665,7 @@ export default function AdminPage() {
           </aside>
 
           <section className="admin-main">
-            <div className="admin-card">
+            {currentUser?.role === "admin" && <div className="admin-card">
               <div className="admin-card-row">
                 <div>
                   <h2>Página de entrada</h2>
@@ -627,9 +684,9 @@ export default function AdminPage() {
               <div className="admin-form-grid">
                 {renderSettingsFields(primarySettingsFields)}
               </div>
-            </div>
+            </div>}
 
-            <details className="admin-card admin-advanced-settings">
+            {currentUser?.role === "admin" && <details className="admin-card admin-advanced-settings">
               <summary className="admin-advanced-summary">
                 <div>
                   <h2>Configuración avanzada</h2>
@@ -651,7 +708,49 @@ export default function AdminPage() {
                   {renderSettingsFields(simulatorSettingsFields)}
                 </div>
               </div>
-            </details>
+            </details>}
+
+            {currentUser?.role === "admin" && (
+              <div className="admin-card">
+                <div className="admin-card-row">
+                  <div>
+                    <h2>Usuarios del panel</h2>
+                    <p className="admin-mini-copy">
+                      Los vendedores pueden gestionar vehículos y consultar formularios. Solo los administradores cambian textos, usuarios y eliminan citas.
+                    </p>
+                  </div>
+                </div>
+                <div className="admin-form-grid">
+                  <label>
+                    Nuevo usuario
+                    <input value={newUserName} onChange={(event) => setNewUserName(event.target.value)} placeholder="vendedor.ana" />
+                  </label>
+                  <label>
+                    Contraseña temporal
+                    <input type="password" value={newUserPassword} onChange={(event) => setNewUserPassword(event.target.value)} placeholder="Mínimo 8 caracteres" />
+                  </label>
+                  <label>
+                    Permiso
+                    <select value={newUserRole} onChange={(event) => setNewUserRole(event.target.value as "admin" | "seller")}>
+                      <option value="seller">Vendedor limitado</option>
+                      <option value="admin">Administrador</option>
+                    </select>
+                  </label>
+                </div>
+                <button className="btn admin-submit" onClick={createPanelUser} disabled={saving}>
+                  Crear usuario <span>↗</span>
+                </button>
+                {panelUsers.length > 0 && (
+                  <div className="admin-vehicle-list" style={{ marginTop: 18 }}>
+                    {panelUsers.map((user) => (
+                      <div className="admin-vehicle-item" key={user.id}>
+                        <div><strong>{user.username}</strong><span>{user.role === "admin" ? "Administrador" : "Vendedor limitado"}</span></div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             {selectedVehicle && (
               <div className="admin-card">
@@ -861,7 +960,7 @@ export default function AdminPage() {
                       <th>Teléfono</th>
                       <th>Inicial</th>
                       <th>Periodo</th>
-                      <th>Acción</th>
+                      {currentUser?.role === "admin" && <th>Acción</th>}
                     </tr>
                   </thead>
                   <tbody>
@@ -878,20 +977,16 @@ export default function AdminPage() {
                           <td>{submission.phone}</td>
                           <td>{submission.initial}</td>
                           <td>{submission.timeline || "Sin dato"}</td>
-                          <td>
-                            <button
-                              className="admin-remove-submission"
-                              onClick={() => removeSubmission(submission.id)}
-                              disabled={saving}
-                            >
+                          {currentUser?.role === "admin" && <td>
+                            <button className="admin-remove-submission" onClick={() => removeSubmission(submission.id)} disabled={saving}>
                               Eliminar
                             </button>
-                          </td>
+                          </td>}
                         </tr>
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={9} className="leads-empty">
+                        <td colSpan={currentUser?.role === "admin" ? 9 : 8} className="leads-empty">
                           Todavía no hay formularios que coincidan con ese filtro.
                         </td>
                       </tr>

@@ -1,10 +1,10 @@
-import { jsonResponse, requireAdmin } from "../../../server/auth";
+import { jsonResponse, requireAdministrator } from "../../../server/auth";
 import { saveSettings } from "../../../server/store";
 
 export const dynamic = "force-dynamic";
 
 export async function PUT(request: Request) {
-  const unauthorized = await requireAdmin(request);
+  const unauthorized = await requireAdministrator(request);
   if (unauthorized) return unauthorized;
 
   try {
