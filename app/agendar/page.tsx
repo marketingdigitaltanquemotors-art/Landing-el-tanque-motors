@@ -1,7 +1,13 @@
 "use client";
 
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
+
+declare global {
+  interface Window {
+    gtag?: (...args: unknown[]) => void;
+  }
+}
 
 const weekdayHours = [
   "8:30 AM",
@@ -127,6 +133,8 @@ function ScheduleContent() {
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
+  const submittingRef = useRef(false);
+  const convertedReservationIds = useRef(new Set<string>());
 
   const dayInfo = useMemo(() => getDayInfo(date), [date]);
   const calendarDays = useMemo(() => buildCalendarDays(monthView), [monthView]);
@@ -167,6 +175,8 @@ function ScheduleContent() {
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
 
+    if (submittingRef.current) return;
+
     if (!name.trim() || !phone.trim()) {
       setFormError("Completa tu nombre y número de teléfono.");
       setSubmitted(false);
@@ -179,6 +189,7 @@ function ScheduleContent() {
       return;
     }
 
+    submittingRef.current = true;
     setSubmitting(true);
 
     try {
@@ -207,12 +218,29 @@ function ScheduleContent() {
         throw new Error(payload.error || "No se pudo registrar la cita.");
       }
 
+      const payload = (await response.json()) as { submission?: { id?: string } };
+      const reservationId = payload.submission?.id;
+
+      // Se dispara solamente tras la respuesta exitosa de /api/leads y una vez
+      // por cada cita persistida, incluso si React vuelve a renderizar la página.
+      if (
+        reservationId &&
+        !convertedReservationIds.current.has(reservationId) &&
+        typeof window.gtag === "function"
+      ) {
+        window.gtag("event", "conversion", {
+          send_to: "AW-18453245198/jIysCPu7mfocEI7amN9E",
+        });
+        convertedReservationIds.current.add(reservationId);
+      }
+
       setFormError("");
       setSubmitted(true);
     } catch (error) {
       setFormError(error instanceof Error ? error.message : "No se pudo registrar la cita.");
       setSubmitted(false);
     } finally {
+      submittingRef.current = false;
       setSubmitting(false);
     }
   }
