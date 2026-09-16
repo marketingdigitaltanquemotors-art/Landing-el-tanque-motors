@@ -1,5 +1,8 @@
 import type { Metadata } from 'next';
+import Script from 'next/script';
 import './globals.css';
+
+const googleAdsId = process.env.NEXT_PUBLIC_GOOGLE_ADS_ID || 'AW-18453245198';
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://el-tanque-motors.com'),
@@ -25,7 +28,19 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es">
-      <body>{children}</body>
+      <body>
+        <Script
+          src={`https://www.googletagmanager.com/gtag/js?id=${googleAdsId}`}
+          strategy="afterInteractive"
+        />
+        <Script id="google-ads-tag" strategy="afterInteractive">
+          {`window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+gtag('js', new Date());
+gtag('config', '${googleAdsId}');`}
+        </Script>
+        {children}
+      </body>
     </html>
   );
 }
