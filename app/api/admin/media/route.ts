@@ -1,4 +1,4 @@
-import { jsonResponse, requireAdmin } from "../../../server/auth";
+import { jsonResponse, requireAdministrator } from "../../../server/auth";
 import {
   completeVehicleMediaUpload,
   createVehicleMediaUpload,
@@ -10,7 +10,7 @@ import {
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
-  const unauthorized = await requireAdmin(request);
+  const unauthorized = await requireAdministrator(request);
   if (unauthorized) return unauthorized;
 
   try {
@@ -74,7 +74,7 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  const unauthorized = await requireAdmin(request);
+  const unauthorized = await requireAdministrator(request);
   if (unauthorized) return unauthorized;
 
   const url = new URL(request.url);

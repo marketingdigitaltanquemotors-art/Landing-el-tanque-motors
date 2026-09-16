@@ -1,4 +1,4 @@
-import { jsonResponse, requireAdmin } from "../../../server/auth";
+import { jsonResponse, requireAdmin, requireAdministrator } from "../../../server/auth";
 import { listVehicles, upsertVehicle } from "../../../server/store";
 
 export const dynamic = "force-dynamic";
@@ -10,7 +10,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const unauthorized = await requireAdmin(request);
+  const unauthorized = await requireAdministrator(request);
   if (unauthorized) return unauthorized;
 
   try {

@@ -211,6 +211,7 @@ export default function AdminPage() {
 
   const selectedVehicle =
     vehicles.find((vehicle) => vehicle.id === selectedVehicleId) ?? vehicles[0];
+  const isAdministrator = currentUser?.role === "admin";
 
   const filteredSubmissions = useMemo(() => {
     return submissions.filter((submission) => {
@@ -638,9 +639,11 @@ export default function AdminPage() {
             <div className="admin-card">
               <div className="admin-card-row">
                 <h2>Vehículos</h2>
-                <button className="btn btn-small" onClick={addVehicle} disabled={saving}>
-                  Agregar
-                </button>
+                {isAdministrator && (
+                  <button className="btn btn-small" onClick={addVehicle} disabled={saving}>
+                    Agregar
+                  </button>
+                )}
               </div>
               <div className="admin-vehicle-list">
                 {vehicles.map((vehicle) => (
@@ -768,7 +771,7 @@ export default function AdminPage() {
                       </a>
                     </p>
                   </div>
-                  <div className="admin-topbar-actions">
+                  {isAdministrator && <div className="admin-topbar-actions">
                     <button
                       className="outline-btn admin-publish-btn"
                       onClick={saveVehicle}
@@ -783,7 +786,7 @@ export default function AdminPage() {
                     >
                       Eliminar
                     </button>
-                  </div>
+                  </div>}
                 </div>
 
                 <div className="admin-form-grid">
@@ -792,6 +795,7 @@ export default function AdminPage() {
                     <small>Usa *texto* para mostrar esa parte en color naranja.</small>
                     <input
                       value={selectedVehicle.name}
+                      readOnly={!isAdministrator}
                       onChange={(event) => updateVehicleLocal({ name: event.target.value })}
                     />
                   </label>
@@ -799,6 +803,7 @@ export default function AdminPage() {
                     Año
                     <input
                       value={selectedVehicle.year}
+                      readOnly={!isAdministrator}
                       onChange={(event) => updateVehicleLocal({ year: event.target.value })}
                     />
                   </label>
@@ -806,6 +811,7 @@ export default function AdminPage() {
                     Kilometraje
                     <input
                       value={selectedVehicle.km}
+                      readOnly={!isAdministrator}
                       onChange={(event) => updateVehicleLocal({ km: event.target.value })}
                     />
                   </label>
@@ -814,6 +820,7 @@ export default function AdminPage() {
                     <input
                       type="number"
                       value={selectedVehicle.price}
+                      readOnly={!isAdministrator}
                       onChange={(event) =>
                         updateVehicleLocal({ price: Number(event.target.value || 0) })
                       }
@@ -823,6 +830,7 @@ export default function AdminPage() {
                     Combustible
                     <input
                       value={selectedVehicle.fuel}
+                      readOnly={!isAdministrator}
                       onChange={(event) => updateVehicleLocal({ fuel: event.target.value })}
                     />
                   </label>
@@ -830,6 +838,7 @@ export default function AdminPage() {
                     Transmisión
                     <input
                       value={selectedVehicle.transmission}
+                      readOnly={!isAdministrator}
                       onChange={(event) =>
                         updateVehicleLocal({ transmission: event.target.value })
                       }
@@ -839,6 +848,7 @@ export default function AdminPage() {
                     Características del vehículo
                     <textarea
                       value={selectedVehicle.features}
+                      readOnly={!isAdministrator}
                       onChange={(event) =>
                         updateVehicleLocal({ features: event.target.value })
                       }
@@ -854,7 +864,7 @@ export default function AdminPage() {
                     ) : (
                       <div className="admin-media-empty">Aún no has cargado video.</div>
                     )}
-                    <div className="admin-media-actions">
+                    {isAdministrator && <div className="admin-media-actions">
                       <label className="btn admin-upload">
                         <input
                           type="file"
@@ -872,7 +882,7 @@ export default function AdminPage() {
                           Eliminar video
                         </button>
                       )}
-                    </div>
+                    </div>}
                     {renderUploadProgress("video")}
                   </div>
 
@@ -883,20 +893,20 @@ export default function AdminPage() {
                         {selectedVehicle.imageMedia.map((image, index) => (
                           <div className="admin-image-item" key={image.key}>
                             <img src={image.url} alt={`${selectedVehicle.name} ${index + 1}`} />
-                            <button
+                            {isAdministrator && <button
                               className="admin-remove-image"
                               onClick={() => deleteMedia(image.key)}
                               disabled={saving}
                             >
                               Quitar
-                            </button>
+                            </button>}
                           </div>
                         ))}
                       </div>
                     ) : (
                       <div className="admin-media-empty">Aún no has cargado fotos.</div>
                     )}
-                    <div className="admin-media-actions">
+                    {isAdministrator && <div className="admin-media-actions">
                       <label className="btn admin-upload">
                         <input
                           type="file"
@@ -906,7 +916,7 @@ export default function AdminPage() {
                         />
                         Subir fotos
                       </label>
-                    </div>
+                    </div>}
                     {renderUploadProgress("image")}
                   </div>
                 </div>
