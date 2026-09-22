@@ -118,6 +118,30 @@ function isMissingSupabaseConfig(error: unknown) {
   return error instanceof Error && error.message === "Falta configurar Supabase en Vercel.";
 }
 
+/**
+ * Las páginas públicas no deben convertirse en un 500 por un recurso auxiliar
+ * (por ejemplo, una fila de medios que fue borrada o una tabla que todavía se
+ * está restaurando). Conservamos el dato que sí pudo leerse y dejamos un rastro
+ * útil en los logs de Vercel para reparar la configuración sin interrumpir el
+ * sitio.
+ */
+function logStoreReadFailure(operation: string, error: unknown) {
+  console.error("[store] read failed", {
+    operation,
+    message: error instanceof Error ? error.message : String(error),
+  });
+}
+
+async function tryEnsureDefaults() {
+  try {
+    await ensureDefaults();
+    return true;
+  } catch (error) {
+    logStoreReadFailure("ensureDefaults", error);
+    return false;
+  }
+}
+
 function mediaUrl(key: string) {
   const { url, bucket } = getSupabaseConfig();
   const encodedKey = key.split("/").map(encodeURIComponent).join("/");
@@ -254,7 +278,7 @@ async function ensureDefaults() {
 
 export async function getSettings() {
   try {
-    await ensureDefaults();
+    await tryEnsureDefaults();
     const { data, error } = await getSupabase()
       .from(SETTINGS_TABLE)
       .select("value")
@@ -267,8 +291,8 @@ export async function getSettings() {
     const { panelUsers: _panelUsers, ...publicSettings } = value;
     return { ...defaultSettings, ...publicSettings } as SiteSettings;
   } catch (error) {
-    if (isMissingSupabaseConfig(error)) return defaultSettings;
-    throw error;
+    logStoreReadFailure("getSettings", error);
+    return defaultSettings;
   }
 }
 
@@ -313,57 +337,58 @@ export async function savePanelUser(user: PanelUser) {
 
 export async function listVehicles() {
   try {
-    await ensureDefaults();
+    await tryEnsureDefaults();
     const supabase = getSupabase();
-    const [{ data: vehicles, error: vehiclesError }, { data: media, error: mediaError }] =
-      await Promise.all([
-        supabase
-          .from(VEHICLES_TABLE)
-          .select("*")
-          .order("sort_order", { ascending: true })
-          .order("created_at", { ascending: true }),
-        supabase
-          .from(MEDIA_TABLE)
-          .select("*")
-          .order("sort_order", { ascending: true })
-          .order("created_at", { ascending: true }),
-      ]);
+    const { data: vehicles, error: vehiclesError } = await supabase
+      .from(VEHICLES_TABLE)
+      .select("*")
+      .order("sort_order", { ascending: true })
+      .order("created_at", { ascending: true });
     requireNoError(vehiclesError);
-    requireNoError(mediaError);
+
+    // La galería no debe impedir que se muestre el inventario. Esto también
+    // permite recuperar el panel si vehicle_media fue eliminado por error.
+    const { data: media, error: mediaError } = await supabase
+      .from(MEDIA_TABLE)
+      .select("*")
+      .order("sort_order", { ascending: true })
+      .order("created_at", { ascending: true });
+    if (mediaError) logStoreReadFailure("listVehicles.media", mediaError);
 
     return ((vehicles || []) as VehicleRow[]).map((vehicle) =>
-      toVehicle(vehicle, (media || []) as MediaRow[]),
+      toVehicle(vehicle, mediaError ? [] : (media || []) as MediaRow[]),
     );
   } catch (error) {
-    if (isMissingSupabaseConfig(error)) return defaultVehicles;
-    throw error;
+    logStoreReadFailure("listVehicles", error);
+    return defaultVehicles;
   }
 }
 
 export async function getVehicleById(id: string) {
   try {
-    await ensureDefaults();
+    await tryEnsureDefaults();
     const supabase = getSupabase();
-    const [{ data: vehicle, error: vehicleError }, { data: media, error: mediaError }] =
-      await Promise.all([
-        supabase.from(VEHICLES_TABLE).select("*").eq("id", id).maybeSingle<VehicleRow>(),
-        supabase
-          .from(MEDIA_TABLE)
-          .select("*")
-          .eq("vehicle_id", id)
-          .order("sort_order", { ascending: true })
-          .order("created_at", { ascending: true }),
-      ]);
+    const { data: vehicle, error: vehicleError } = await supabase
+      .from(VEHICLES_TABLE)
+      .select("*")
+      .eq("id", id)
+      .maybeSingle<VehicleRow>();
     requireNoError(vehicleError);
-    requireNoError(mediaError);
 
     if (!vehicle) return null;
-    return toVehicle(vehicle, (media || []) as MediaRow[]);
+
+    const { data: media, error: mediaError } = await supabase
+      .from(MEDIA_TABLE)
+      .select("*")
+      .eq("vehicle_id", id)
+      .order("sort_order", { ascending: true })
+      .order("created_at", { ascending: true });
+    if (mediaError) logStoreReadFailure("getVehicleById.media", mediaError);
+
+    return toVehicle(vehicle, mediaError ? [] : (media || []) as MediaRow[]);
   } catch (error) {
-    if (isMissingSupabaseConfig(error)) {
-      return defaultVehicles.find((item) => item.id === id) || null;
-    }
-    throw error;
+    logStoreReadFailure("getVehicleById", error);
+    return defaultVehicles.find((item) => item.id === id) || null;
   }
 }
 
@@ -648,7 +673,7 @@ export async function addSubmission(input: Omit<LeadSubmission, "id" | "createdA
 
 export async function listSubmissions() {
   try {
-    await ensureDefaults();
+    await tryEnsureDefaults();
     const { data, error } = await getSupabase()
       .from(SUBMISSIONS_TABLE)
       .select("*")
@@ -673,8 +698,8 @@ export async function listSubmissions() {
       createdAt: row.created_at,
     }));
   } catch (error) {
-    if (isMissingSupabaseConfig(error)) return [];
-    throw error;
+    logStoreReadFailure("listSubmissions", error);
+    return [];
   }
 }
 
