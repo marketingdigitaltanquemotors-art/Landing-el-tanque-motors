@@ -49,7 +49,9 @@ export default function VehicleClient({ vehicle, settings }: VehicleClientProps)
   const [activeImage, setActiveImage] = useState(0);
   const videoRef = useRef<HTMLVideoElement>(null);
   const monthly = calculateEstimatedMonthlyPayment(vehicle.price, down, months);
-  const landingTitle = vehicle.landingTitle?.trim() || vehicle.name;
+  const landingTitle =
+    vehicle.landingTitle?.trim() ||
+    `LLÉVATE TU *${vehicle.name} ${vehicle.year}* POR *${money(vehicle.price)}*`;
   const landingDescription =
     vehicle.landingDescription?.trim() ||
     settings.heroText?.trim() ||
