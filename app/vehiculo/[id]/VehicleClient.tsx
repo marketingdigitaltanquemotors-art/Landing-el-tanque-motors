@@ -31,7 +31,8 @@ type VehicleClientProps = {
 };
 
 function renderHighlightedText(text: string) {
-  return text.split(/(\*[^*]+\*)/g).map((part, index) =>
+  const normalizedText = text.replace(/\\\*/g, "*");
+  return normalizedText.split(/(\*[^*]+\*)/g).map((part, index) =>
     part.startsWith("*") && part.endsWith("*") ? (
       <span className="text-highlight" key={`highlight-${index}`}>
         {part.slice(1, -1)}
@@ -51,6 +52,7 @@ export default function VehicleClient({ vehicle, settings }: VehicleClientProps)
   const monthly = calculateEstimatedMonthlyPayment(vehicle.price, down, months);
   const landingTitle =
     vehicle.landingTitle?.trim() ||
+    settings.heading?.trim() ||
     `LLÉVATE TU *${vehicle.name} ${vehicle.year}* POR *${money(vehicle.price)}*`;
   const landingDescription =
     vehicle.landingDescription?.trim() ||

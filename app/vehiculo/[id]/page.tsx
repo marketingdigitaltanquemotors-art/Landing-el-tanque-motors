@@ -25,6 +25,7 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
 
   const landingTitle =
     vehicle.landingTitle?.trim() ||
+    settings.heading?.trim() ||
     `LLÉVATE TU *${vehicle.name} ${vehicle.year}* POR *${money(vehicle.price)}*`;
   const title = `${landingTitle} | El Tanque Motors`;
   const featureSummary = vehicle.features
