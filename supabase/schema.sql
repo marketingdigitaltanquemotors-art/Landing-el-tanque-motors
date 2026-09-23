@@ -13,10 +13,17 @@ create table if not exists public.vehicles (
   transmission text not null,
   price integer not null default 0 check (price >= 0),
   features text not null,
+  landing_title text,
+  landing_description text,
   sort_order integer not null default 0,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+-- Compatibilidad con instalaciones existentes.
+alter table public.vehicles
+  add column if not exists landing_title text,
+  add column if not exists landing_description text;
 
 create table if not exists public.vehicle_media (
   key text primary key,

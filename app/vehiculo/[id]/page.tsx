@@ -22,14 +22,15 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
     };
   }
 
-  const title = `${vehicle.name} ${vehicle.year} | El Tanque Motors`;
+  const landingTitle = vehicle.landingTitle?.trim() || vehicle.name;
+  const title = `${landingTitle} | El Tanque Motors`;
   const featureSummary = vehicle.features
     .split(/·|\n/)
     .map((item) => item.trim())
     .filter(Boolean)
     .slice(0, 3)
     .join(", ");
-  const description = `${vehicle.name} ${vehicle.year}, ${vehicle.km}, ${vehicle.transmission}. Precio ${new Intl.NumberFormat(
+  const fallbackDescription = `${vehicle.name} ${vehicle.year}, ${vehicle.km}, ${vehicle.transmission}. Precio ${new Intl.NumberFormat(
     "es-DO",
     {
       style: "currency",
@@ -37,6 +38,8 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
       maximumFractionDigits: 0,
     },
   ).format(vehicle.price)}.${featureSummary ? ` Características: ${featureSummary}.` : ""}`;
+
+  const description = vehicle.landingDescription?.trim() || fallbackDescription;
 
   return {
     title,

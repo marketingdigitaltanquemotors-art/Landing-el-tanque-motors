@@ -842,6 +842,28 @@ export default function AdminPage() {
                       onChange={(event) =>
                         updateVehicleLocal({ transmission: event.target.value })
                       }
+                      />
+                  </label>
+                  <label className="full">
+                    Título de entrada del vehículo
+                    <small>Este título solo se mostrará en la página de este vehículo.</small>
+                    <input
+                      value={selectedVehicle.landingTitle ?? ""}
+                      readOnly={!isAdministrator}
+                      onChange={(event) =>
+                        updateVehicleLocal({ landingTitle: event.target.value })
+                      }
+                    />
+                  </label>
+                  <label className="full">
+                    Descripción de entrada del vehículo
+                    <small>Texto propio que aparecerá debajo del título en su página.</small>
+                    <textarea
+                      value={selectedVehicle.landingDescription ?? ""}
+                      readOnly={!isAdministrator}
+                      onChange={(event) =>
+                        updateVehicleLocal({ landingDescription: event.target.value })
+                      }
                     />
                   </label>
                   <label className="full">

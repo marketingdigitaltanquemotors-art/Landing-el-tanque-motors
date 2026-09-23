@@ -26,6 +26,8 @@ type VehicleRow = {
   transmission: string;
   price: number;
   features: string;
+  landing_title?: string | null;
+  landing_description?: string | null;
   sort_order: number;
   created_at?: string;
   updated_at?: string;
@@ -220,6 +222,8 @@ function toVehicle(row: VehicleRow, mediaRows: MediaRow[]): Vehicle {
     transmission: row.transmission,
     price: Number(row.price || 0),
     features: row.features,
+    landingTitle: row.landing_title || undefined,
+    landingDescription: row.landing_description || undefined,
     images: imageMedia.map((item) => item.url),
     imageMedia,
     video: videoMedia?.url,
@@ -413,6 +417,9 @@ export async function upsertVehicle(input: Partial<Vehicle> & { id?: string }) {
     transmission: input.transmission?.trim() || current?.transmission || "Automático",
     price: Math.max(0, Math.round(Number(input.price || current?.price || 0))),
     features: input.features?.trim() || current?.features || "Motor\nPantalla\nCámara\nAsientos",
+    landing_title: input.landingTitle?.trim() || current?.landingTitle || null,
+    landing_description:
+      input.landingDescription?.trim() || current?.landingDescription || null,
     updated_at: now,
   };
 

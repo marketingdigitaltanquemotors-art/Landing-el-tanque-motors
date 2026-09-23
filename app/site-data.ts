@@ -16,6 +16,8 @@ export type Vehicle = {
   transmission: string;
   price: number;
   features: string;
+  landingTitle?: string;
+  landingDescription?: string;
   video?: string;
   videoStorageKey?: string;
   videoMedia?: VehicleMedia | null;

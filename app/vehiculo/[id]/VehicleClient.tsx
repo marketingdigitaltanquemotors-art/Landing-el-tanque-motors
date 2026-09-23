@@ -48,7 +48,11 @@ export default function VehicleClient({ vehicle, settings }: VehicleClientProps)
   const [months, setMonths] = useState(48);
   const [activeImage, setActiveImage] = useState(0);
   const monthly = calculateEstimatedMonthlyPayment(vehicle.price, down, months);
-  const headingLength = Math.max(vehicle.name.trim().length, 1);
+  const landingTitle = vehicle.landingTitle?.trim() || vehicle.name;
+  const landingDescription =
+    vehicle.landingDescription?.trim() ||
+    `${vehicle.year} · ${vehicle.km} · ${vehicle.transmission} · ${vehicle.fuel}`;
+  const headingLength = Math.max(landingTitle.length, 1);
   const headingScale = Math.max(0.48, Math.min(1, 55 / headingLength));
   const headingStyle = {
     fontSize: `clamp(30px, ${(6.4 * headingScale).toFixed(2)}vw, ${Math.round(102 * headingScale)}px)`,
@@ -93,10 +97,8 @@ export default function VehicleClient({ vehicle, settings }: VehicleClientProps)
           <div className="heading-row">
             <p className="eyebrow">{settings.vehicleHeroEyebrow}</p>
           </div>
-          <h1 style={headingStyle}>{renderHighlightedText(vehicle.name)}</h1>
-          <p className="hero-text vehicle-hero-description">
-            {vehicle.year} · {vehicle.km} · {vehicle.transmission} · {vehicle.fuel}
-          </p>
+          <h1 style={headingStyle}>{renderHighlightedText(landingTitle)}</h1>
+          <p className="hero-text vehicle-hero-description">{landingDescription}</p>
         </div>
       </section>
 
