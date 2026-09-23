@@ -1,4 +1,4 @@
-import { getMediaObject } from "../../../server/store";
+import { getMediaSignedUrl } from "../../../server/store";
 
 export const dynamic = "force-dynamic";
 
@@ -8,16 +8,17 @@ export async function GET(
 ) {
   const { key } = await params;
   const objectKey = key.map(decodeURIComponent).join("/");
-  const object = await getMediaObject(objectKey);
+  const signedUrl = await getMediaSignedUrl(objectKey);
 
-  if (!object) {
+  if (!signedUrl) {
     return new Response("Archivo no encontrado.", { status: 404 });
   }
 
-  return new Response(object.body, {
+  return new Response(null, {
+    status: 302,
     headers: {
-      "cache-control": "public, max-age=31536000, immutable",
-      "content-type": object.contentType,
+      location: signedUrl,
+      "cache-control": "public, max-age=3600",
     },
   });
 }

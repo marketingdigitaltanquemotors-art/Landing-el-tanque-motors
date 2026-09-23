@@ -143,9 +143,8 @@ async function tryEnsureDefaults() {
 }
 
 function mediaUrl(key: string) {
-  const { url, bucket } = getSupabaseConfig();
   const encodedKey = key.split("/").map(encodeURIComponent).join("/");
-  return `${url}/storage/v1/object/public/${encodeURIComponent(bucket)}/${encodedKey}`;
+  return `/api/media/${encodedKey}`;
 }
 
 function requireNoError(error: { message: string } | null) {
@@ -565,6 +564,7 @@ export async function saveVehicleMedia(vehicleId: string, file: File, kind: "ima
   const body = await file.arrayBuffer();
   const { error: uploadError } = await supabase.storage.from(bucket).upload(key, body, {
     contentType,
+    cacheControl: "31536000",
     upsert: false,
   });
   requireNoError(uploadError);
@@ -604,25 +604,29 @@ export async function deleteMedia(key: string) {
   requireNoError(mediaError);
 }
 
-export async function getMediaObject(key: string): Promise<StoredMediaObject | null> {
+export async function getMediaSignedUrl(key: string): Promise<string | null> {
   await ensureDefaults();
+
   const supabase = getSupabase();
+
   const { data: allowed, error: mediaError } = await supabase
     .from(MEDIA_TABLE)
-    .select("key, content_type")
+    .select("key")
     .eq("key", key)
-    .maybeSingle<Pick<MediaRow, "key" | "content_type">>();
+    .maybeSingle<Pick<MediaRow, "key">>();
+
   requireNoError(mediaError);
+
   if (!allowed) return null;
 
-  const { data, error } = await supabase.storage.from(getStorageBucket()).download(key);
-  requireNoError(error);
-  if (!data) return null;
+  const { data, error } = await supabase
+    .storage
+    .from(getStorageBucket())
+    .createSignedUrl(key, 86400);
 
-  return {
-    body: data.stream() as ReadableStream<Uint8Array>,
-    contentType: allowed.content_type || data.type || "application/octet-stream",
-  };
+  requireNoError(error);
+
+  return data?.signedUrl ?? null;
 }
 
 export async function addSubmission(input: Omit<LeadSubmission, "id" | "createdAt">) {

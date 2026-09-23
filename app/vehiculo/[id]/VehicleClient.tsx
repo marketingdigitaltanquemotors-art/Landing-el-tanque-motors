@@ -136,11 +136,10 @@ export default function VehicleClient({ vehicle, settings }: VehicleClientProps)
                     ref={videoRef}
                     src={vehicle.video}
                     controls
-                    autoPlay
                     muted
                     loop
                     playsInline
-                    preload="metadata"
+                    preload="none"
                   />
                 ) : (
                   <div className="mini-car">
