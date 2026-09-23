@@ -232,6 +232,10 @@ function ScheduleContent() {
       const payload = (await response.json()) as { submission?: { id?: string } };
       const reservationId = payload.submission?.id;
 
+      if (!reservationId) {
+        throw new Error("No se confirmó el registro de la cita.");
+      }
+
       // Se dispara solamente tras la respuesta exitosa de /api/leads y una vez
       // por cada cita persistida, incluso si React vuelve a renderizar la página.
       if (
@@ -243,7 +247,8 @@ function ScheduleContent() {
       }
 
       setFormError("");
-      setSubmitted(true);
+      window.location.assign("/gracias-por-agendar");
+      return;
     } catch (error) {
       setFormError(error instanceof Error ? error.message : "No se pudo registrar la cita.");
       setSubmitted(false);

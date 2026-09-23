@@ -1810,6 +1810,47 @@ footer {
   color: #6a645b;
   padding: 28px 16px !important;
 }
+.thank-you-page {
+  min-height: 100vh;
+  background: var(--paper);
+}
+.thank-you-card {
+  width: min(760px, calc(100% - 44px));
+  margin: 86px auto;
+  padding: 62px 7vw 70px;
+  text-align: center;
+  background: #ded8cc;
+  border: 1px solid var(--line);
+  box-shadow: 8px 8px 0 var(--ink);
+}
+.thank-you-check {
+  display: grid;
+  width: 78px;
+  height: 78px;
+  margin: 0 auto 26px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--orange);
+  color: white;
+  font-size: 48px;
+  font-weight: 900;
+}
+.thank-you-card h1 {
+  max-width: 650px;
+  margin: 0 auto;
+  font-size: clamp(40px, 6vw, 78px);
+  line-height: 0.95;
+}
+.thank-you-card > p:not(.eyebrow) {
+  max-width: 560px;
+  margin: 26px auto 34px;
+  color: #5e5a53;
+  font-size: 17px;
+  line-height: 1.6;
+}
+.thank-you-card .btn {
+  margin-top: 4px;
+}
 .admin-remove-submission {
   border: 1px solid #c74646;
   background: #fff3f1;
