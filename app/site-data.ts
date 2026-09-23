@@ -193,6 +193,22 @@ export function money(value: number) {
   }).format(value)}`;
 }
 
+export function vehicleLandingTitle(vehicle: Vehicle, template?: string) {
+  const custom = vehicle.landingTitle?.trim();
+  if (custom) return custom;
+
+  const normalizedTemplate = template?.trim().replace(/\\\*/g, "*");
+  const templateMatch = normalizedTemplate?.match(
+    /^(.*?)(\*[^*]+\*)(\s+POR\s+)(\*[^*]+\*)(.*)$/i,
+  );
+
+  if (templateMatch) {
+    return `${templateMatch[1]}*${vehicle.name} ${vehicle.year}*${templateMatch[3]}*${money(vehicle.price)}*${templateMatch[5]}`;
+  }
+
+  return `LLÉVATE TU *${vehicle.name} ${vehicle.year}* POR *${money(vehicle.price)}*`;
+}
+
 export function slugify(text: string) {
   return text
     .toLowerCase()

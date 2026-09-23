@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { SiteSettings, Vehicle, money } from "../../site-data";
+import { SiteSettings, Vehicle, money, vehicleLandingTitle } from "../../site-data";
 
 const termOptions = [24, 36, 48, 60];
 const annualInterestRate = 0.1595;
@@ -50,10 +50,7 @@ export default function VehicleClient({ vehicle, settings }: VehicleClientProps)
   const [activeImage, setActiveImage] = useState(0);
   const videoRef = useRef<HTMLVideoElement>(null);
   const monthly = calculateEstimatedMonthlyPayment(vehicle.price, down, months);
-  const landingTitle =
-    vehicle.landingTitle?.trim() ||
-    settings.heading?.trim() ||
-    `LLÉVATE TU *${vehicle.name} ${vehicle.year}* POR *${money(vehicle.price)}*`;
+  const landingTitle = vehicleLandingTitle(vehicle, settings.heading);
   const landingDescription =
     vehicle.landingDescription?.trim() ||
     settings.heroText?.trim() ||
