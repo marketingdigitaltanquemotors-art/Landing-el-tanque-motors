@@ -48,9 +48,10 @@ export default function VehicleClient({ vehicle, settings }: VehicleClientProps)
   const [months, setMonths] = useState(48);
   const [activeImage, setActiveImage] = useState(0);
   const monthly = calculateEstimatedMonthlyPayment(vehicle.price, down, months);
-  const landingTitle = vehicle.landingTitle?.trim() || vehicle.name;
+  const landingTitle = vehicle.landingTitle?.trim() || settings.heading?.trim() || vehicle.name;
   const landingDescription =
     vehicle.landingDescription?.trim() ||
+    settings.heroText?.trim() ||
     `${vehicle.year} · ${vehicle.km} · ${vehicle.transmission} · ${vehicle.fuel}`;
   const headingLength = Math.max(landingTitle.length, 1);
   const headingScale = Math.max(0.48, Math.min(1, 55 / headingLength));

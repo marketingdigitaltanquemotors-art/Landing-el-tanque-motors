@@ -13,7 +13,7 @@ async function resolveParams(params: Params) {
 
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
   const { id } = await resolveParams(params);
-  const vehicle = await getVehicleById(id);
+  const [vehicle, settings] = await Promise.all([getVehicleById(id), getSettings()]);
 
   if (!vehicle) {
     return {
@@ -22,7 +22,7 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
     };
   }
 
-  const landingTitle = vehicle.landingTitle?.trim() || vehicle.name;
+  const landingTitle = vehicle.landingTitle?.trim() || settings.heading?.trim() || vehicle.name;
   const title = `${landingTitle} | El Tanque Motors`;
   const featureSummary = vehicle.features
     .split(/·|\n/)
@@ -39,7 +39,8 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
     },
   ).format(vehicle.price)}.${featureSummary ? ` Características: ${featureSummary}.` : ""}`;
 
-  const description = vehicle.landingDescription?.trim() || fallbackDescription;
+  const description =
+    vehicle.landingDescription?.trim() || settings.heroText?.trim() || fallbackDescription;
 
   return {
     title,
