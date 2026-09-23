@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { SiteSettings, Vehicle, money } from "../../site-data";
 
 const termOptions = [24, 36, 48, 60];
@@ -47,6 +47,7 @@ export default function VehicleClient({ vehicle, settings }: VehicleClientProps)
   const [down, setDown] = useState(20);
   const [months, setMonths] = useState(48);
   const [activeImage, setActiveImage] = useState(0);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const monthly = calculateEstimatedMonthlyPayment(vehicle.price, down, months);
   const landingTitle = vehicle.landingTitle?.trim() || settings.heading?.trim() || vehicle.name;
   const landingDescription =
@@ -66,6 +67,30 @@ export default function VehicleClient({ vehicle, settings }: VehicleClientProps)
     .split(/·|\n/)
     .map((item) => item.trim())
     .filter(Boolean);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !vehicle.video) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          void video.play().catch(() => {
+            // El navegador puede bloquear autoplay si el video no está silenciado.
+          });
+        } else {
+          video.pause();
+        }
+      },
+      { threshold: 0.55 },
+    );
+
+    observer.observe(video);
+    return () => {
+      observer.disconnect();
+      video.pause();
+    };
+  }, [vehicle.video]);
 
   function goToSchedule() {
     const params = new URLSearchParams({
@@ -111,6 +136,7 @@ export default function VehicleClient({ vehicle, settings }: VehicleClientProps)
               <div className="tile-media">
                 {vehicle.video ? (
                   <video
+                    ref={videoRef}
                     src={vehicle.video}
                     controls
                     muted
