@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { SiteSettings, Vehicle, money } from "../../site-data";
 
 const termOptions = [24, 36, 48, 60];
@@ -47,9 +47,8 @@ export default function VehicleClient({ vehicle, settings }: VehicleClientProps)
   const [down, setDown] = useState(20);
   const [months, setMonths] = useState(48);
   const [activeImage, setActiveImage] = useState(0);
-  const videoRef = useRef<HTMLVideoElement | null>(null);
   const monthly = calculateEstimatedMonthlyPayment(vehicle.price, down, months);
-  const headingLength = Math.max(settings.heading.trim().length, 1);
+  const headingLength = Math.max(vehicle.name.trim().length, 1);
   const headingScale = Math.max(0.48, Math.min(1, 55 / headingLength));
   const headingStyle = {
     fontSize: `clamp(30px, ${(6.4 * headingScale).toFixed(2)}vw, ${Math.round(102 * headingScale)}px)`,
@@ -57,33 +56,6 @@ export default function VehicleClient({ vehicle, settings }: VehicleClientProps)
     textAlign: "justify" as const,
     textAlignLast: "left" as const,
   };
-
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (!videoRef.current) return;
-
-        if (entry.isIntersecting) {
-          try {
-            videoRef.current.muted = true;
-            videoRef.current.play().catch(() => undefined);
-          } catch {
-            return;
-          }
-        } else {
-          videoRef.current.pause();
-        }
-      },
-      { threshold: 0.25 },
-    );
-
-    observer.observe(video);
-
-    return () => observer.disconnect();
-  }, [vehicle.video]);
 
   const featureItems = vehicle.features
     .split(/·|\n/)
@@ -121,7 +93,10 @@ export default function VehicleClient({ vehicle, settings }: VehicleClientProps)
           <div className="heading-row">
             <p className="eyebrow">{settings.vehicleHeroEyebrow}</p>
           </div>
-          <h1 style={headingStyle}>{renderHighlightedText(settings.heading)}</h1>
+          <h1 style={headingStyle}>{renderHighlightedText(vehicle.name)}</h1>
+          <p className="hero-text vehicle-hero-description">
+            {vehicle.year} · {vehicle.km} · {vehicle.transmission} · {vehicle.fuel}
+          </p>
         </div>
       </section>
 
@@ -133,7 +108,6 @@ export default function VehicleClient({ vehicle, settings }: VehicleClientProps)
               <div className="tile-media">
                 {vehicle.video ? (
                   <video
-                    ref={videoRef}
                     src={vehicle.video}
                     controls
                     muted

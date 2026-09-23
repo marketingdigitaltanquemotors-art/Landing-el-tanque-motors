@@ -23,6 +23,12 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   }
 
   const title = `${vehicle.name} ${vehicle.year} | El Tanque Motors`;
+  const featureSummary = vehicle.features
+    .split(/·|\n/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .slice(0, 3)
+    .join(", ");
   const description = `${vehicle.name} ${vehicle.year}, ${vehicle.km}, ${vehicle.transmission}. Precio ${new Intl.NumberFormat(
     "es-DO",
     {
@@ -30,7 +36,7 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
       currency: "DOP",
       maximumFractionDigits: 0,
     },
-  ).format(vehicle.price)}.`;
+  ).format(vehicle.price)}.${featureSummary ? ` Características: ${featureSummary}.` : ""}`;
 
   return {
     title,
