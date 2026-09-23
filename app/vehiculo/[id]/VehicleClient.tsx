@@ -59,8 +59,11 @@ export default function VehicleClient({ vehicle, settings }: VehicleClientProps)
   const headingLength = Math.max(landingTitle.length, 1);
   const headingScale = Math.max(0.48, Math.min(1, 55 / headingLength));
   const headingStyle = {
-    fontSize: `clamp(30px, ${(6.4 * headingScale).toFixed(2)}vw, ${Math.round(102 * headingScale)}px)`,
+    fontSize: `clamp(24px, ${(6.4 * headingScale).toFixed(2)}vw, ${Math.round(102 * headingScale)}px)`,
     lineHeight: headingLength > 65 ? 0.98 : 0.86,
+    maxWidth: "100%",
+    whiteSpace: "normal" as const,
+    overflowWrap: "anywhere" as const,
     textAlign: "justify" as const,
     textAlignLast: "left" as const,
   };
