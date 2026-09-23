@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getSettings, getVehicleById } from "../../server/store";
-import { money } from "../../site-data";
 import VehicleClient from "./VehicleClient";
 
 export const dynamic = "force-dynamic";
@@ -23,9 +22,7 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
     };
   }
 
-  const landingTitle =
-    vehicle.landingTitle?.trim() ||
-    `LLÉVATE TU ${vehicle.name} ${vehicle.year} POR ${money(vehicle.price)}`;
+  const landingTitle = vehicle.landingTitle?.trim() || vehicle.name;
   const title = `${landingTitle} | El Tanque Motors`;
   const featureSummary = vehicle.features
     .split(/·|\n/)
