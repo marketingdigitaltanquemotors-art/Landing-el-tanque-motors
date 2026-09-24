@@ -3,23 +3,6 @@
 import { Suspense, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
-declare global {
-  interface Window {
-    gtag?: (...args: unknown[]) => void;
-    dataLayer?: unknown[][];
-  }
-}
-
-function reportReservationConversion() {
-  // Conserva el evento si gtag.js todavía está terminando de cargar. Cuando
-  // Google tag queda listo, procesa los elementos que estén en dataLayer.
-  window.dataLayer = window.dataLayer || [];
-  const gtag = window.gtag || ((...args: unknown[]) => window.dataLayer!.push(args));
-  gtag("event", "conversion", {
-    send_to: "AW-18453245198/jIysCPu7mfocEI7amN9E",
-  });
-}
-
 const weekdayHours = [
   "8:30 AM",
   "9:30 AM",
@@ -145,7 +128,6 @@ function ScheduleContent() {
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
   const submittingRef = useRef(false);
-  const convertedReservationIds = useRef(new Set<string>());
 
   const dayInfo = useMemo(() => getDayInfo(date), [date]);
   const calendarDays = useMemo(() => buildCalendarDays(monthView), [monthView]);
@@ -234,16 +216,6 @@ function ScheduleContent() {
 
       if (!reservationId) {
         throw new Error("No se confirmó el registro de la cita.");
-      }
-
-      // Se dispara solamente tras la respuesta exitosa de /api/leads y una vez
-      // por cada cita persistida, incluso si React vuelve a renderizar la página.
-      if (
-        reservationId &&
-        !convertedReservationIds.current.has(reservationId)
-      ) {
-        reportReservationConversion();
-        convertedReservationIds.current.add(reservationId);
       }
 
       setFormError("");
