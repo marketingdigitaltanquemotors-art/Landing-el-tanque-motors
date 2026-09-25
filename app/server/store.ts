@@ -86,6 +86,36 @@ const DEFAULT_BUCKET = "vehicle-media";
 let supabaseClient: SupabaseClient | null = null;
 let defaultsReady: Promise<void> | null = null;
 
+// Caché breve por instancia para evitar lecturas duplicadas (metadata, página
+// y galería) sin mantener datos administrativos obsoletos por mucho tiempo.
+const READ_CACHE_TTL_MS = 15_000;
+const SIGNED_URL_CACHE_TTL_MS = 10 * 60_000;
+type CacheEntry<T> = { value: T; expiresAt: number };
+let settingsCache: CacheEntry<SiteSettings> | null = null;
+let vehiclesCache: CacheEntry<Vehicle[]> | null = null;
+const vehicleCache = new Map<string, CacheEntry<Vehicle | null>>();
+const signedUrlCache = new Map<string, CacheEntry<string | null>>();
+
+function cachedValue<T>(entry: CacheEntry<T> | undefined | null) {
+  if (!entry || entry.expiresAt <= Date.now()) return undefined;
+  return entry.value;
+}
+
+function cacheEntry<T>(value: T, ttl: number): CacheEntry<T> {
+  return { value, expiresAt: Date.now() + ttl };
+}
+
+function invalidateVehicleCaches(id?: string) {
+  vehiclesCache = null;
+  if (id) vehicleCache.delete(id);
+  else vehicleCache.clear();
+}
+
+function invalidateMediaCaches(key?: string, vehicleId?: string) {
+  if (key) signedUrlCache.delete(key);
+  invalidateVehicleCaches(vehicleId);
+}
+
 function getSupabaseConfig() {
   const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -280,6 +310,9 @@ async function ensureDefaults() {
 }
 
 export async function getSettings() {
+  const cached = cachedValue(settingsCache);
+  if (cached) return cached;
+
   try {
     await tryEnsureDefaults();
     const { data, error } = await getSupabase()
@@ -292,7 +325,9 @@ export async function getSettings() {
     const value: Record<string, unknown> = isRecord(data?.value) ? data.value : {};
     // Never expose credential hashes through the public site settings endpoint.
     const { panelUsers: _panelUsers, ...publicSettings } = value;
-    return { ...defaultSettings, ...publicSettings } as SiteSettings;
+    const settings = { ...defaultSettings, ...publicSettings } as SiteSettings;
+    settingsCache = cacheEntry(settings, READ_CACHE_TTL_MS);
+    return settings;
   } catch (error) {
     logStoreReadFailure("getSettings", error);
     return defaultSettings;
@@ -309,6 +344,8 @@ export async function saveSettings(settings: SiteSettings) {
     updated_at: new Date().toISOString(),
   });
   requireNoError(error);
+
+  settingsCache = null;
 
   return getSettings();
 }
@@ -335,16 +372,20 @@ export async function savePanelUser(user: PanelUser) {
     updated_at: new Date().toISOString(),
   });
   requireNoError(error);
+  settingsCache = null;
   return user;
 }
 
 export async function listVehicles() {
+  const cached = cachedValue(vehiclesCache);
+  if (cached) return cached;
+
   try {
     await tryEnsureDefaults();
     const supabase = getSupabase();
     const { data: vehicles, error: vehiclesError } = await supabase
       .from(VEHICLES_TABLE)
-      .select("*")
+      .select("id,name,year,km,fuel,transmission,price,features,landing_title,landing_description,sort_order,created_at,updated_at")
       .order("sort_order", { ascending: true })
       .order("created_at", { ascending: true });
     requireNoError(vehiclesError);
@@ -353,14 +394,16 @@ export async function listVehicles() {
     // permite recuperar el panel si vehicle_media fue eliminado por error.
     const { data: media, error: mediaError } = await supabase
       .from(MEDIA_TABLE)
-      .select("*")
+      .select("key,vehicle_id,kind,filename,content_type,size,sort_order,created_at")
       .order("sort_order", { ascending: true })
       .order("created_at", { ascending: true });
     if (mediaError) logStoreReadFailure("listVehicles.media", mediaError);
 
-    return ((vehicles || []) as VehicleRow[]).map((vehicle) =>
+    const result = ((vehicles || []) as VehicleRow[]).map((vehicle) =>
       toVehicle(vehicle, mediaError ? [] : (media || []) as MediaRow[]),
     );
+    vehiclesCache = cacheEntry(result, READ_CACHE_TTL_MS);
+    return result;
   } catch (error) {
     logStoreReadFailure("listVehicles", error);
     return defaultVehicles;
@@ -368,12 +411,15 @@ export async function listVehicles() {
 }
 
 export async function getVehicleById(id: string) {
+  const cached = cachedValue(vehicleCache.get(id));
+  if (cached !== undefined) return cached;
+
   try {
     await tryEnsureDefaults();
     const supabase = getSupabase();
     const { data: vehicle, error: vehicleError } = await supabase
       .from(VEHICLES_TABLE)
-      .select("*")
+      .select("id,name,year,km,fuel,transmission,price,features,landing_title,landing_description,sort_order,created_at,updated_at")
       .eq("id", id)
       .maybeSingle<VehicleRow>();
     requireNoError(vehicleError);
@@ -382,13 +428,15 @@ export async function getVehicleById(id: string) {
 
     const { data: media, error: mediaError } = await supabase
       .from(MEDIA_TABLE)
-      .select("*")
+      .select("key,vehicle_id,kind,filename,content_type,size,sort_order,created_at")
       .eq("vehicle_id", id)
       .order("sort_order", { ascending: true })
       .order("created_at", { ascending: true });
     if (mediaError) logStoreReadFailure("getVehicleById.media", mediaError);
 
-    return toVehicle(vehicle, mediaError ? [] : (media || []) as MediaRow[]);
+    const result = toVehicle(vehicle, mediaError ? [] : (media || []) as MediaRow[]);
+    vehicleCache.set(id, cacheEntry(result, READ_CACHE_TTL_MS));
+    return result;
   } catch (error) {
     logStoreReadFailure("getVehicleById", error);
     return defaultVehicles.find((item) => item.id === id) || null;
@@ -440,6 +488,8 @@ export async function upsertVehicle(input: Partial<Vehicle> & { id?: string }) {
     requireNoError(error);
   }
 
+  invalidateVehicleCaches(vehicle.id);
+
   return getVehicleById(vehicle.id);
 }
 
@@ -461,6 +511,8 @@ export async function deleteVehicle(id: string) {
 
   const { error } = await supabase.from(VEHICLES_TABLE).delete().eq("id", id);
   requireNoError(error);
+  keys.forEach((key) => signedUrlCache.delete(key));
+  invalidateVehicleCaches(id);
 }
 
 function validateMediaUpload(
@@ -541,6 +593,8 @@ export async function completeVehicleMediaUpload(
   });
   requireNoError(mediaError);
 
+  invalidateMediaCaches(input.key, vehicleId);
+
   return getVehicleById(vehicleId);
 }
 
@@ -597,6 +651,8 @@ export async function saveVehicleMedia(vehicleId: string, file: File, kind: "ima
   });
   requireNoError(mediaError);
 
+  invalidateMediaCaches(key, vehicleId);
+
   return getVehicleById(vehicleId);
 }
 
@@ -609,9 +665,13 @@ export async function deleteMedia(key: string) {
 
   const { error: mediaError } = await supabase.from(MEDIA_TABLE).delete().eq("key", key);
   requireNoError(mediaError);
+  invalidateMediaCaches(key);
 }
 
 export async function getMediaSignedUrl(key: string): Promise<string | null> {
+  const cached = cachedValue(signedUrlCache.get(key));
+  if (cached !== undefined) return cached;
+
   await ensureDefaults();
 
   const supabase = getSupabase();
@@ -624,7 +684,10 @@ export async function getMediaSignedUrl(key: string): Promise<string | null> {
 
   requireNoError(mediaError);
 
-  if (!allowed) return null;
+  if (!allowed) {
+    signedUrlCache.set(key, cacheEntry(null, READ_CACHE_TTL_MS));
+    return null;
+  }
 
   const { data, error } = await supabase
     .storage
@@ -633,7 +696,9 @@ export async function getMediaSignedUrl(key: string): Promise<string | null> {
 
   requireNoError(error);
 
-  return data?.signedUrl ?? null;
+  const signedUrl = data?.signedUrl ?? null;
+  signedUrlCache.set(key, cacheEntry(signedUrl, SIGNED_URL_CACHE_TTL_MS));
+  return signedUrl;
 }
 
 export async function addSubmission(input: Omit<LeadSubmission, "id" | "createdAt">) {
