@@ -3,6 +3,12 @@
 import { Suspense, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
+declare global {
+  interface Window {
+    fbq?: (...args: unknown[]) => void;
+  }
+}
+
 const weekdayHours = [
   "8:30 AM",
   "9:30 AM",
@@ -128,6 +134,7 @@ function ScheduleContent() {
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
   const submittingRef = useRef(false);
+  const scheduleTrackedRef = useRef(false);
 
   const dayInfo = useMemo(() => getDayInfo(date), [date]);
   const calendarDays = useMemo(() => buildCalendarDays(monthView), [monthView]);
@@ -219,6 +226,14 @@ function ScheduleContent() {
       }
 
       setFormError("");
+      if (
+        !scheduleTrackedRef.current &&
+        typeof window !== "undefined" &&
+        typeof window.fbq === "function"
+      ) {
+        scheduleTrackedRef.current = true;
+        window.fbq("track", "Schedule");
+      }
       window.location.assign("/gracias-por-agendar");
       return;
     } catch (error) {
