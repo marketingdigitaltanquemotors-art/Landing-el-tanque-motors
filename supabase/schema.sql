@@ -59,6 +59,8 @@ alter table public.lead_submissions
     check (appointment_status in ('pending', 'attended', 'no_show', 'rescheduled'));
 alter table public.lead_submissions
   add column if not exists rescheduled_date text;
+alter table public.lead_submissions
+  add column if not exists appointment_comment text not null default '';
 
 create index if not exists idx_vehicle_media_vehicle
   on public.vehicle_media(vehicle_id, sort_order);

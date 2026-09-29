@@ -1882,6 +1882,18 @@ footer {
 .leads-no-date {
   color: #8d877e;
 }
+.admin-appointment-comment {
+  width: 180px;
+  min-width: 140px;
+  min-height: 54px;
+  resize: vertical;
+  padding: 8px;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+  font-size: 12px;
+}
 @media (max-width: 900px) {
   .schedule-layout {
     grid-template-columns: 1fr;

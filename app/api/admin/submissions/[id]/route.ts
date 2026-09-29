@@ -34,11 +34,13 @@ export async function PATCH(
     const input = (await request.json()) as {
       appointmentStatus?: string;
       rescheduledDate?: string;
+      appointmentComment?: string;
     };
     await updateSubmissionStatus(
       id,
       input.appointmentStatus as Parameters<typeof updateSubmissionStatus>[1],
       input.rescheduledDate,
+      input.appointmentComment,
     );
     return jsonResponse({ ok: true });
   } catch (error) {

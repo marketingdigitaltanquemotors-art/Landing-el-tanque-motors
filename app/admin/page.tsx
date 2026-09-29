@@ -168,6 +168,7 @@ export default function AdminPage() {
   const [submissionDrafts, setSubmissionDrafts] = useState<Record<string, {
     appointmentStatus: LeadSubmission["appointmentStatus"];
     rescheduledDate: string;
+    appointmentComment: string;
   }>>({});
   const [vehicleFilter, setVehicleFilter] = useState("todos");
   const [dateFilter, setDateFilter] = useState("");
@@ -420,6 +421,7 @@ export default function AdminPage() {
     return submissionDrafts[submission.id] ?? {
       appointmentStatus: submission.appointmentStatus || "pending",
       rescheduledDate: submission.rescheduledDate || "",
+      appointmentComment: submission.appointmentComment || "",
     };
   }
 
@@ -428,6 +430,7 @@ export default function AdminPage() {
     patch: Partial<{
       appointmentStatus: LeadSubmission["appointmentStatus"];
       rescheduledDate: string;
+      appointmentComment: string;
     }>,
   ) {
     const current = getSubmissionDraft(submission);
@@ -459,6 +462,7 @@ export default function AdminPage() {
                 draft.appointmentStatus === "rescheduled"
                   ? draft.rescheduledDate
                   : undefined,
+              appointmentComment: draft.appointmentComment,
             }
           : item,
       ));
@@ -1057,6 +1061,7 @@ export default function AdminPage() {
                       <th>Periodo</th>
                       <th>¿Vino?</th>
                       <th>Nueva fecha</th>
+                      <th>Comentario</th>
                       <th>Guardar</th>
                       {currentUser?.role === "admin" && <th>Acción</th>}
                     </tr>
@@ -1109,6 +1114,19 @@ export default function AdminPage() {
                             )}
                           </td>
                           <td>
+                            <textarea
+                              className="admin-appointment-comment"
+                              value={draft.appointmentComment}
+                              onChange={(event) => updateSubmissionDraft(submission, {
+                                appointmentComment: event.target.value,
+                              })}
+                              rows={2}
+                              placeholder="Escribe un comentario"
+                              disabled={saving}
+                              aria-label={`Comentario de la cita de ${submission.name}`}
+                            />
+                          </td>
+                          <td>
                             <button
                               className="admin-status-save"
                               onClick={() => saveSubmissionStatus(submission)}
@@ -1128,7 +1146,7 @@ export default function AdminPage() {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={currentUser?.role === "admin" ? 12 : 11} className="leads-empty">
+                        <td colSpan={currentUser?.role === "admin" ? 13 : 12} className="leads-empty">
                           Todavía no hay formularios que coincidan con ese filtro.
                         </td>
                       </tr>

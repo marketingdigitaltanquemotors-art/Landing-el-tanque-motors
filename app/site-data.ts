@@ -102,6 +102,7 @@ export type LeadSubmission = {
   createdAt: string;
   appointmentStatus: "pending" | "attended" | "no_show" | "rescheduled";
   rescheduledDate?: string;
+  appointmentComment: string;
 };
 
 export const defaultVehicles: Vehicle[] = [
