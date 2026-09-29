@@ -1140,22 +1140,23 @@ export default function AdminPage() {
                             </select>
                           </td>
                           <td>
-                              {draft.rescheduledDate ? (
-                                isAdministrator ? (
+                              {isAdministrator ? (
                                 <input
                                   type="date"
                                   value={draft.rescheduledDate}
                                   onChange={(event) => updateSubmissionDraft(submission, {
                                     rescheduledDate: event.target.value,
+                                    appointmentStatus: event.target.value
+                                      ? "rescheduled"
+                                      : draft.appointmentStatus,
                                   })}
                                   disabled={saving}
                                   aria-label={`Nueva fecha de la cita de ${submission.name}`}
                                 />
-                                ) : (
+                              ) : draft.rescheduledDate ? (
                                   <span className="leads-readonly-date">
                                     {formatSubmissionDate(draft.rescheduledDate)}
                                   </span>
-                                )
                               ) : (
                                 <span className="leads-no-date">—</span>
                               )}
