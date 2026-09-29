@@ -813,6 +813,7 @@ export async function updateSubmissionStatus(
   appointmentStatus: LeadSubmission["appointmentStatus"],
   rescheduledDate?: string,
   appointmentComment = "",
+  canReschedule = true,
 ) {
   const submissionId = id.trim();
   if (!submissionId) throw new Error("Falta la cita a actualizar.");
@@ -821,18 +822,24 @@ export async function updateSubmissionStatus(
   }
   const normalizedDate = String(rescheduledDate || "").trim();
   const normalizedComment = String(appointmentComment || "").trim();
-  if (appointmentStatus === "rescheduled" && !normalizedDate) {
+  if (!canReschedule && appointmentStatus === "rescheduled") {
+    throw new Error("Solo un administrador puede reagendar una cita.");
+  }
+  if (canReschedule && appointmentStatus === "rescheduled" && !normalizedDate) {
     throw new Error("Selecciona la nueva fecha de la cita.");
   }
 
   await ensureDefaults();
+  const update = {
+    appointment_status: appointmentStatus,
+    appointment_comment: normalizedComment,
+    ...(canReschedule
+      ? { rescheduled_date: appointmentStatus === "rescheduled" ? normalizedDate : null }
+      : {}),
+  };
   const { error } = await getSupabase()
     .from(SUBMISSIONS_TABLE)
-    .update({
-      appointment_status: appointmentStatus,
-      rescheduled_date: appointmentStatus === "rescheduled" ? normalizedDate : null,
-      appointment_comment: normalizedComment,
-    })
+    .update(update)
     .eq("id", submissionId);
   requireNoError(error);
 }

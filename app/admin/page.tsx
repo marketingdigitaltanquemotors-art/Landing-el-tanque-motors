@@ -1100,7 +1100,7 @@ export default function AdminPage() {
                       <th>Inicial</th>
                       <th>Periodo</th>
                       <th>¿Vino?</th>
-                      <th>Nueva fecha</th>
+                      {isAdministrator && <th>Nueva fecha</th>}
                       <th>Comentario</th>
                       <th>Guardar</th>
                       {currentUser?.role === "admin" && <th>Acción</th>}
@@ -1135,24 +1135,28 @@ export default function AdminPage() {
                               <option value="pending">Pendiente</option>
                               <option value="attended">Sí, vino</option>
                               <option value="no_show">No vino</option>
-                              <option value="rescheduled">Pospuso</option>
+                              {(isAdministrator || draft.appointmentStatus === "rescheduled") && (
+                                <option value="rescheduled" disabled={!isAdministrator}>
+                                  {isAdministrator ? "Pospuso" : "Pospuso (solo administrador)"}
+                                </option>
+                              )}
                             </select>
                           </td>
-                          <td>
-                            {draft.appointmentStatus === "rescheduled" ? (
-                              <input
-                                type="date"
-                                value={draft.rescheduledDate}
-                                onChange={(event) => updateSubmissionDraft(submission, {
-                                  rescheduledDate: event.target.value,
-                                })}
-                                disabled={saving}
-                                aria-label={`Nueva fecha de la cita de ${submission.name}`}
-                              />
-                            ) : (
-                              <span className="leads-no-date">—</span>
-                            )}
-                          </td>
+                          {isAdministrator && <td>
+                              {draft.appointmentStatus === "rescheduled" ? (
+                                <input
+                                  type="date"
+                                  value={draft.rescheduledDate}
+                                  onChange={(event) => updateSubmissionDraft(submission, {
+                                    rescheduledDate: event.target.value,
+                                  })}
+                                  disabled={saving}
+                                  aria-label={`Nueva fecha de la cita de ${submission.name}`}
+                                />
+                              ) : (
+                                <span className="leads-no-date">—</span>
+                              )}
+                            </td>}
                           <td>
                             <textarea
                               className="admin-appointment-comment"
@@ -1186,7 +1190,7 @@ export default function AdminPage() {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={currentUser?.role === "admin" ? 13 : 12} className="leads-empty">
+                        <td colSpan={currentUser?.role === "admin" ? 13 : 11} className="leads-empty">
                           Todavía no hay formularios que coincidan con ese filtro.
                         </td>
                       </tr>
