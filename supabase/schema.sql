@@ -54,6 +54,12 @@ create table if not exists public.lead_submissions (
   created_at timestamptz not null default now()
 );
 
+alter table public.lead_submissions
+  add column if not exists appointment_status text not null default 'pending'
+    check (appointment_status in ('pending', 'attended', 'no_show', 'rescheduled'));
+alter table public.lead_submissions
+  add column if not exists rescheduled_date text;
+
 create index if not exists idx_vehicle_media_vehicle
   on public.vehicle_media(vehicle_id, sort_order);
 

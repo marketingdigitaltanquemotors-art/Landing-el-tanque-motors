@@ -60,6 +60,8 @@ type LeadRow = {
   initial: string;
   timeline: string;
   created_at: string;
+  appointment_status?: LeadSubmission["appointmentStatus"] | null;
+  rescheduled_date?: string | null;
 };
 
 export type PanelUser = {
@@ -701,7 +703,12 @@ export async function getMediaSignedUrl(key: string): Promise<string | null> {
   return signedUrl;
 }
 
-export async function addSubmission(input: Omit<LeadSubmission, "id" | "createdAt">) {
+export async function addSubmission(
+  input: Omit<LeadSubmission, "id" | "createdAt" | "appointmentStatus" | "rescheduledDate"> & {
+    appointmentStatus?: LeadSubmission["appointmentStatus"];
+    rescheduledDate?: string;
+  },
+) {
   await ensureDefaults();
   const required = [input.vehicle, input.date, input.time, input.name, input.phone, input.timeline];
   if (required.some((value) => !String(value || "").trim())) {
@@ -723,6 +730,7 @@ export async function addSubmission(input: Omit<LeadSubmission, "id" | "createdA
     initial: input.initial.trim(),
     timeline: input.timeline.trim(),
     createdAt: new Date().toISOString(),
+    appointmentStatus: "pending",
   };
 
   const { error } = await getSupabase().from(SUBMISSIONS_TABLE).insert({
@@ -740,6 +748,8 @@ export async function addSubmission(input: Omit<LeadSubmission, "id" | "createdA
     phone: submission.phone,
     initial: submission.initial,
     timeline: submission.timeline,
+    appointment_status: submission.appointmentStatus,
+    rescheduled_date: submission.rescheduledDate || null,
     created_at: submission.createdAt,
   });
   requireNoError(error);
@@ -752,7 +762,7 @@ export async function listSubmissions() {
     await tryEnsureDefaults();
     const { data, error } = await getSupabase()
       .from(SUBMISSIONS_TABLE)
-      .select("*")
+      .select("id,vehicle,year,price,down,months,monthly,date,time,name,gmail,phone,initial,timeline,appointment_status,rescheduled_date,created_at")
       .order("created_at", { ascending: false });
     requireNoError(error);
 
@@ -772,6 +782,8 @@ export async function listSubmissions() {
       initial: row.initial,
       timeline: row.timeline,
       createdAt: row.created_at,
+      appointmentStatus: row.appointment_status || "pending",
+      rescheduledDate: row.rescheduled_date || undefined,
     }));
   } catch (error) {
     logStoreReadFailure("listSubmissions", error);
@@ -787,6 +799,32 @@ export async function deleteSubmission(id: string) {
   const { error } = await getSupabase()
     .from(SUBMISSIONS_TABLE)
     .delete()
+    .eq("id", submissionId);
+  requireNoError(error);
+}
+
+export async function updateSubmissionStatus(
+  id: string,
+  appointmentStatus: LeadSubmission["appointmentStatus"],
+  rescheduledDate?: string,
+) {
+  const submissionId = id.trim();
+  if (!submissionId) throw new Error("Falta la cita a actualizar.");
+  if (!["pending", "attended", "no_show", "rescheduled"].includes(appointmentStatus)) {
+    throw new Error("Estado de cita inválido.");
+  }
+  const normalizedDate = String(rescheduledDate || "").trim();
+  if (appointmentStatus === "rescheduled" && !normalizedDate) {
+    throw new Error("Selecciona la nueva fecha de la cita.");
+  }
+
+  await ensureDefaults();
+  const { error } = await getSupabase()
+    .from(SUBMISSIONS_TABLE)
+    .update({
+      appointment_status: appointmentStatus,
+      rescheduled_date: appointmentStatus === "rescheduled" ? normalizedDate : null,
+    })
     .eq("id", submissionId);
   requireNoError(error);
 }

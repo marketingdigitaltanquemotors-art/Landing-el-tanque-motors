@@ -165,6 +165,10 @@ export default function AdminPage() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [selectedVehicleId, setSelectedVehicleId] = useState("");
   const [submissions, setSubmissions] = useState<LeadSubmission[]>([]);
+  const [submissionDrafts, setSubmissionDrafts] = useState<Record<string, {
+    appointmentStatus: LeadSubmission["appointmentStatus"];
+    rescheduledDate: string;
+  }>>({});
   const [vehicleFilter, setVehicleFilter] = useState("todos");
   const [dateFilter, setDateFilter] = useState("");
   const [message, setMessage] = useState("");
@@ -407,6 +411,65 @@ export default function AdminPage() {
       setMessage("Cita eliminada.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "No se pudo eliminar la cita.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function getSubmissionDraft(submission: LeadSubmission) {
+    return submissionDrafts[submission.id] ?? {
+      appointmentStatus: submission.appointmentStatus || "pending",
+      rescheduledDate: submission.rescheduledDate || "",
+    };
+  }
+
+  function updateSubmissionDraft(
+    submission: LeadSubmission,
+    patch: Partial<{
+      appointmentStatus: LeadSubmission["appointmentStatus"];
+      rescheduledDate: string;
+    }>,
+  ) {
+    const current = getSubmissionDraft(submission);
+    setSubmissionDrafts((drafts) => ({
+      ...drafts,
+      [submission.id]: { ...current, ...patch },
+    }));
+  }
+
+  async function saveSubmissionStatus(submission: LeadSubmission) {
+    const draft = getSubmissionDraft(submission);
+    setSaving(true);
+    setMessage("");
+    try {
+      await readJson<{ ok: boolean }>(
+        await fetch(`/api/admin/submissions/${submission.id}`, {
+          method: "PATCH",
+          credentials: "include",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(draft),
+        }),
+      );
+      setSubmissions((current) => current.map((item) =>
+        item.id === submission.id
+          ? {
+              ...item,
+              appointmentStatus: draft.appointmentStatus,
+              rescheduledDate:
+                draft.appointmentStatus === "rescheduled"
+                  ? draft.rescheduledDate
+                  : undefined,
+            }
+          : item,
+      ));
+      setSubmissionDrafts((drafts) => {
+        const next = { ...drafts };
+        delete next[submission.id];
+        return next;
+      });
+      setMessage("Estado de la cita actualizado.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "No se pudo actualizar la cita.");
     } finally {
       setSaving(false);
     }
@@ -992,6 +1055,9 @@ export default function AdminPage() {
                       <th>Teléfono</th>
                       <th>Inicial</th>
                       <th>Periodo</th>
+                      <th>¿Vino?</th>
+                      <th>Nueva fecha</th>
+                      <th>Guardar</th>
                       {currentUser?.role === "admin" && <th>Acción</th>}
                     </tr>
                   </thead>
@@ -999,6 +1065,9 @@ export default function AdminPage() {
                     {filteredSubmissions.length ? (
                       filteredSubmissions.map((submission) => (
                         <tr key={submission.id}>
+                          {(() => {
+                            const draft = getSubmissionDraft(submission);
+                            return <>
                           <td>{formatSubmissionDate(submission.date)}</td>
                           <td>{submission.time}</td>
                           <td>
@@ -1009,16 +1078,57 @@ export default function AdminPage() {
                           <td>{submission.phone}</td>
                           <td>{submission.initial}</td>
                           <td>{submission.timeline || "Sin dato"}</td>
+                          <td>
+                            <select
+                              value={draft.appointmentStatus}
+                              onChange={(event) => updateSubmissionDraft(submission, {
+                                appointmentStatus: event.target.value as LeadSubmission["appointmentStatus"],
+                              })}
+                              disabled={saving}
+                              aria-label={`Estado de la cita de ${submission.name}`}
+                            >
+                              <option value="pending">Pendiente</option>
+                              <option value="attended">Sí, vino</option>
+                              <option value="no_show">No vino</option>
+                              <option value="rescheduled">Pospuso</option>
+                            </select>
+                          </td>
+                          <td>
+                            {draft.appointmentStatus === "rescheduled" ? (
+                              <input
+                                type="date"
+                                value={draft.rescheduledDate}
+                                onChange={(event) => updateSubmissionDraft(submission, {
+                                  rescheduledDate: event.target.value,
+                                })}
+                                disabled={saving}
+                                aria-label={`Nueva fecha de la cita de ${submission.name}`}
+                              />
+                            ) : (
+                              <span className="leads-no-date">—</span>
+                            )}
+                          </td>
+                          <td>
+                            <button
+                              className="admin-status-save"
+                              onClick={() => saveSubmissionStatus(submission)}
+                              disabled={saving}
+                            >
+                              Guardar
+                            </button>
+                          </td>
                           {currentUser?.role === "admin" && <td>
                             <button className="admin-remove-submission" onClick={() => removeSubmission(submission.id)} disabled={saving}>
                               Eliminar
                             </button>
                           </td>}
+                            </>;
+                          })()}
                         </tr>
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={currentUser?.role === "admin" ? 9 : 8} className="leads-empty">
+                        <td colSpan={currentUser?.role === "admin" ? 12 : 11} className="leads-empty">
                           Todavía no hay formularios que coincidan con ese filtro.
                         </td>
                       </tr>

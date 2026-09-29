@@ -1865,6 +1865,23 @@ footer {
   opacity: 0.55;
   cursor: not-allowed;
 }
+.admin-status-save {
+  border: 1px solid var(--ink);
+  background: var(--ink);
+  color: white;
+  padding: 8px 10px;
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.admin-status-save:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.leads-no-date {
+  color: #8d877e;
+}
 @media (max-width: 900px) {
   .schedule-layout {
     grid-template-columns: 1fr;
