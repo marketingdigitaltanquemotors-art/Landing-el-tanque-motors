@@ -1100,7 +1100,7 @@ export default function AdminPage() {
                       <th>Inicial</th>
                       <th>Periodo</th>
                       <th>¿Vino?</th>
-                      {isAdministrator && <th>Nueva fecha</th>}
+                      <th>Nueva fecha</th>
                       <th>Comentario</th>
                       <th>Guardar</th>
                       {currentUser?.role === "admin" && <th>Acción</th>}
@@ -1142,8 +1142,9 @@ export default function AdminPage() {
                               )}
                             </select>
                           </td>
-                          {isAdministrator && <td>
-                              {draft.appointmentStatus === "rescheduled" ? (
+                          <td>
+                              {draft.rescheduledDate ? (
+                                isAdministrator ? (
                                 <input
                                   type="date"
                                   value={draft.rescheduledDate}
@@ -1153,10 +1154,15 @@ export default function AdminPage() {
                                   disabled={saving}
                                   aria-label={`Nueva fecha de la cita de ${submission.name}`}
                                 />
+                                ) : (
+                                  <span className="leads-readonly-date">
+                                    {formatSubmissionDate(draft.rescheduledDate)}
+                                  </span>
+                                )
                               ) : (
                                 <span className="leads-no-date">—</span>
                               )}
-                            </td>}
+                          </td>
                           <td>
                             <textarea
                               className="admin-appointment-comment"
@@ -1190,7 +1196,7 @@ export default function AdminPage() {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={currentUser?.role === "admin" ? 13 : 11} className="leads-empty">
+                        <td colSpan={currentUser?.role === "admin" ? 13 : 12} className="leads-empty">
                           Todavía no hay formularios que coincidan con ese filtro.
                         </td>
                       </tr>
