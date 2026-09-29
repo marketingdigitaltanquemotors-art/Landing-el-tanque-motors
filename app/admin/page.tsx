@@ -1150,7 +1150,7 @@ export default function AdminPage() {
                                       ? "rescheduled"
                                       : draft.appointmentStatus,
                                   })}
-                                  disabled={saving}
+                                  disabled={saving || draft.appointmentStatus !== "rescheduled"}
                                   aria-label={`Nueva fecha de la cita de ${submission.name}`}
                                 />
                               ) : draft.rescheduledDate ? (
