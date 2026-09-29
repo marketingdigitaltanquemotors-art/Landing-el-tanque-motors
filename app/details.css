@@ -1895,17 +1895,9 @@ footer {
   font-size: 12px;
 }
 
-.admin-report-action {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: flex-end;
-  gap: 8px;
-}
-
-.admin-report-action span {
-  font-size: 0.78rem;
-  color: var(--muted);
+.admin-report-button {
+  align-self: center;
+  white-space: nowrap;
 }
 
 .leads-readonly-date {

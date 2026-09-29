@@ -1049,6 +1049,14 @@ export default function AdminPage() {
                     Citas enviadas desde la página pública.
                   </p>
                 </div>
+                <button
+                  className="outline-btn admin-report-button"
+                  type="button"
+                  onClick={downloadAppointmentsReport}
+                  disabled={downloadingReport || !filteredSubmissions.length}
+                >
+                  {downloadingReport ? "Generando PDF..." : "Descargar citas en PDF"}
+                </button>
               </div>
 
               <div className="admin-form-grid leads-filters">
@@ -1074,17 +1082,6 @@ export default function AdminPage() {
                     onChange={(event) => setDateFilter(event.target.value)}
                   />
                 </label>
-                <div className="admin-report-action">
-                  <span>Reporte completo</span>
-                  <button
-                    className="outline-btn"
-                    type="button"
-                    onClick={downloadAppointmentsReport}
-                    disabled={downloadingReport || !filteredSubmissions.length}
-                  >
-                    {downloadingReport ? "Generando PDF..." : "Descargar citas en PDF"}
-                  </button>
-                </div>
               </div>
 
               <div className="leads-table-wrap">
