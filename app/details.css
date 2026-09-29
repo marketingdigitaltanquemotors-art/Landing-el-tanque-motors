@@ -1894,6 +1894,19 @@ footer {
   font: inherit;
   font-size: 12px;
 }
+
+.admin-report-action {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.admin-report-action span {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
 @media (max-width: 900px) {
   .schedule-layout {
     grid-template-columns: 1fr;

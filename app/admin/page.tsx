@@ -176,6 +176,7 @@ export default function AdminPage() {
   const [saving, setSaving] = useState(false);
   const [authConfigured, setAuthConfigured] = useState(true);
   const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null);
+  const [downloadingReport, setDownloadingReport] = useState(false);
 
   useEffect(() => {
     async function hydrate() {
@@ -476,6 +477,34 @@ export default function AdminPage() {
       setMessage(error instanceof Error ? error.message : "No se pudo actualizar la cita.");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function downloadAppointmentsReport() {
+    setDownloadingReport(true);
+    setMessage("");
+    try {
+      const params = new URLSearchParams({ vehicle: vehicleFilter, date: dateFilter });
+      const response = await fetch(`/api/admin/submissions/report?${params.toString()}`, {
+        credentials: "include",
+      });
+      if (!response.ok) {
+        throw new Error("No se pudo generar el reporte.");
+      }
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `reporte-citas-${new Date().toISOString().slice(0, 10)}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      setMessage("Reporte PDF descargado.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "No se pudo descargar el reporte.");
+    } finally {
+      setDownloadingReport(false);
     }
   }
 
@@ -1045,6 +1074,17 @@ export default function AdminPage() {
                     onChange={(event) => setDateFilter(event.target.value)}
                   />
                 </label>
+                <div className="admin-report-action">
+                  <span>Reporte completo</span>
+                  <button
+                    className="outline-btn"
+                    type="button"
+                    onClick={downloadAppointmentsReport}
+                    disabled={downloadingReport || !filteredSubmissions.length}
+                  >
+                    {downloadingReport ? "Generando PDF..." : "Descargar citas en PDF"}
+                  </button>
+                </div>
               </div>
 
               <div className="leads-table-wrap">
