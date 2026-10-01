@@ -232,7 +232,15 @@ function ScheduleContent() {
         typeof window.fbq === "function"
       ) {
         scheduleTrackedRef.current = true;
-        window.fbq("track", "Schedule");
+        window.fbq(
+          "track",
+          "Schedule",
+          {
+            content_name: `${vehicle} ${year}`.trim(),
+            content_category: "appointment",
+          },
+          { eventID: reservationId },
+        );
       }
       window.location.assign("/gracias-por-agendar");
       return;

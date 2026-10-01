@@ -1,4 +1,6 @@
+import { after } from "next/server";
 import { jsonResponse } from "../../server/auth";
+import { sendMetaSchedule } from "../../server/meta-conversions";
 import { addSubmission } from "../../server/store";
 
 export const dynamic = "force-dynamic";
@@ -21,6 +23,7 @@ export async function POST(request: Request) {
       initial: String(body.initial || ""),
       timeline: String(body.timeline || ""),
     });
+    after(() => sendMetaSchedule({ submission, request }));
     return jsonResponse({ submission }, { status: 201 });
   } catch (error) {
     return jsonResponse(
