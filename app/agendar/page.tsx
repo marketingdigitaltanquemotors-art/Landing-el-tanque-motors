@@ -388,7 +388,6 @@ function ScheduleContent() {
                     type="email"
                     value={gmail}
                     onChange={(e) => setGmail(e.target.value)}
-                    required
                   />
                 </label>
                 <label className="schedule-field">
