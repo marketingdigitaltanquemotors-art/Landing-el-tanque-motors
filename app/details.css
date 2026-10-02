@@ -1781,7 +1781,9 @@ footer {
 }
 .leads-table-wrap {
   margin-top: 18px;
-  overflow-x: auto;
+  max-height: 480px;
+  overflow: auto;
+  scrollbar-gutter: stable;
   border: 1px solid var(--line);
   background: #fff;
 }
@@ -1799,6 +1801,9 @@ footer {
   font-size: 13px;
 }
 .leads-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
   background: #f8f5ef;
   font-size: 10px;
   font-weight: 900;
