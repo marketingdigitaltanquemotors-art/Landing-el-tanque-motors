@@ -45,7 +45,11 @@ function renderHighlightedText(text: string) {
 
 export default function VehicleClient({ vehicle, settings }: VehicleClientProps) {
   const [open, setOpen] = useState(false);
-  const [down, setDown] = useState(20);
+  const minimumDownAmount = Math.round(vehicle.price * 0.2);
+  const maximumDownAmount = Math.round(vehicle.price * 0.7);
+  const [downAmount, setDownAmount] = useState(minimumDownAmount);
+  const [downAmountInput, setDownAmountInput] = useState(String(minimumDownAmount));
+  const down = vehicle.price > 0 ? Number(((downAmount / vehicle.price) * 100).toFixed(1)) : 0;
   const [months, setMonths] = useState(48);
   const [activeImage, setActiveImage] = useState(0);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -355,20 +359,54 @@ export default function VehicleClient({ vehicle, settings }: VehicleClientProps)
                   type="range"
                   min="20"
                   max="70"
-                  step="5"
+                  step="1"
                   value={down}
-                  onChange={(e) => setDown(+e.target.value)}
+                  onChange={(e) => {
+                    const amount = Math.round((vehicle.price * Number(e.target.value)) / 100);
+                    setDownAmount(amount);
+                    setDownAmountInput(String(amount));
+                  }}
                 />
                 <span className="range-labels">
                   <small>20%</small>
                   <small>70%</small>
                 </span>
               </label>
+              <label className="down-payment-input-label">
+                Inicial en pesos (RD$)
+                <input
+                  type="number"
+                  min={minimumDownAmount}
+                  max={maximumDownAmount}
+                  step="1000"
+                  value={downAmountInput}
+                  onChange={(e) => {
+                    const inputValue = e.target.value;
+                    const amount = Number(inputValue);
+                    setDownAmountInput(inputValue);
+                    if (Number.isFinite(amount) && amount > 0) {
+                      setDownAmount(
+                        Math.min(maximumDownAmount, Math.max(minimumDownAmount, Math.round(amount))),
+                      );
+                    }
+                  }}
+                  onBlur={() => {
+                    const amount = Number(downAmountInput);
+                    const nextAmount = Number.isFinite(amount)
+                      ? Math.min(maximumDownAmount, Math.max(minimumDownAmount, Math.round(amount)))
+                      : minimumDownAmount;
+                    setDownAmount(nextAmount);
+                    setDownAmountInput(String(nextAmount));
+                  }}
+                  inputMode="numeric"
+                />
+              </label>
               <div className="down-payment-box">
                 <span>
                   {settings.downAmountLabel} {down}%
                 </span>
-                <strong>{money((vehicle.price * down) / 100)}</strong>
+                <strong>{money(downAmount)}</strong>
+                <small>{down}% del precio total</small>
               </div>
               <label>{settings.termLabel}</label>
               <div className="stepper">
