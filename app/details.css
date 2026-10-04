@@ -1829,6 +1829,12 @@ footer {
   text-transform: uppercase;
   letter-spacing: 0.1em;
 }
+.leads-index {
+  width: 44px;
+  color: var(--orange);
+  font-weight: 900;
+  text-align: center !important;
+}
 .leads-empty {
   text-align: center !important;
   color: #6a645b;

@@ -1088,6 +1088,7 @@ export default function AdminPage() {
                 <table className="leads-table">
                   <thead>
                     <tr>
+                      <th>#</th>
                       <th>Fecha</th>
                       <th>Hora</th>
                       <th>Vehículo</th>
@@ -1105,11 +1106,12 @@ export default function AdminPage() {
                   </thead>
                   <tbody>
                     {filteredSubmissions.length ? (
-                      filteredSubmissions.map((submission) => (
+                      filteredSubmissions.map((submission, index) => (
                         <tr key={submission.id}>
                           {(() => {
                             const draft = getSubmissionDraft(submission);
                             return <>
+                          <td className="leads-index">{index + 1}</td>
                           <td>{formatSubmissionDate(submission.date)}</td>
                           <td>{submission.time}</td>
                           <td>
@@ -1194,7 +1196,7 @@ export default function AdminPage() {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={currentUser?.role === "admin" ? 13 : 12} className="leads-empty">
+                        <td colSpan={currentUser?.role === "admin" ? 14 : 13} className="leads-empty">
                           Todavía no hay formularios que coincidan con ese filtro.
                         </td>
                       </tr>
