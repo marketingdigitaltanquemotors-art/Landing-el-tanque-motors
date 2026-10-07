@@ -100,6 +100,22 @@ export default function VehicleClient({ vehicle, settings }: VehicleClientProps)
     };
   }, [vehicle.video]);
 
+  useEffect(() => {
+    const images = vehicle.images;
+    if (!images || images.length < 2) return;
+
+    // Keep the current gallery responsive without downloading every photo up front.
+    const indexes = [
+      (activeImage + 1) % images.length,
+      (activeImage - 1 + images.length) % images.length,
+    ];
+    indexes.forEach((index) => {
+      const image = new Image();
+      image.decoding = "async";
+      image.src = images[index];
+    });
+  }, [activeImage, vehicle.images]);
+
   function goToSchedule() {
     const params = new URLSearchParams({
       vehicle: vehicle.name,
@@ -184,6 +200,7 @@ export default function VehicleClient({ vehicle, settings }: VehicleClientProps)
                       <img
                         src={vehicle.images[activeImage % vehicle.images.length]}
                         alt={`${vehicle.name}, ángulo ${(activeImage % vehicle.images.length) + 1}`}
+                        decoding="async"
                       />
                       {vehicle.images.length > 1 && (
                         <>
