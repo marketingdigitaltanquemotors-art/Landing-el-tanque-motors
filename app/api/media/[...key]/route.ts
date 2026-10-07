@@ -18,7 +18,9 @@ export async function GET(
     status: 302,
     headers: {
       location: signedUrl,
-      "cache-control": "public, max-age=3600",
+      // Signed URLs are valid for 24 hours. Cache this lightweight redirect
+      // so repeat visits do not perform another database/signing round-trip.
+      "cache-control": "public, max-age=86400, s-maxage=86400, stale-while-revalidate=3600",
     },
   });
 }
