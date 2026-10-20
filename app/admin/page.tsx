@@ -172,6 +172,7 @@ export default function AdminPage() {
   }>>({});
   const [vehicleFilter, setVehicleFilter] = useState("todos");
   const [dateFilter, setDateFilter] = useState("");
+  const [phoneFilter, setPhoneFilter] = useState("");
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
   const [authConfigured, setAuthConfigured] = useState(true);
@@ -224,9 +225,13 @@ export default function AdminPage() {
       const matchesVehicle =
         vehicleFilter === "todos" || submission.vehicle === vehicleFilter;
       const matchesDate = !dateFilter || submission.date === dateFilter;
-      return matchesVehicle && matchesDate;
+      const normalizedPhone = submission.phone.replace(/\D/g, "");
+      const normalizedPhoneFilter = phoneFilter.replace(/\D/g, "");
+      const matchesPhone =
+        !normalizedPhoneFilter || normalizedPhone.includes(normalizedPhoneFilter);
+      return matchesVehicle && matchesDate && matchesPhone;
     });
-  }, [submissions, vehicleFilter, dateFilter]);
+  }, [submissions, vehicleFilter, dateFilter, phoneFilter]);
 
   function formatSubmissionDate(value: string) {
     const [year, month, day] = value.split("-");
@@ -1080,6 +1085,16 @@ export default function AdminPage() {
                     type="date"
                     value={dateFilter}
                     onChange={(event) => setDateFilter(event.target.value)}
+                  />
+                </label>
+                <label>
+                  Buscar por teléfono
+                  <input
+                    type="search"
+                    value={phoneFilter}
+                    onChange={(event) => setPhoneFilter(event.target.value)}
+                    placeholder="Ej. 809-747-9704"
+                    inputMode="tel"
                   />
                 </label>
               </div>
