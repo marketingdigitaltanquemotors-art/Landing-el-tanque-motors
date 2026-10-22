@@ -43,7 +43,13 @@ type UploadProgress = {
   percent: number;
 };
 
-type SubmissionSection = "active" | "deleted" | "purchased" | "not_qualified" | "unidentified";
+type SubmissionSection =
+  | "active"
+  | "deleted"
+  | "purchased"
+  | "not_qualified"
+  | "unidentified"
+  | "in_process_banking";
 
 const primarySettingsFields: SettingsField[] = [
   { key: "heading", label: "Título principal de la página del vehículo" },
@@ -1090,6 +1096,7 @@ export default function AdminPage() {
                     <option value="purchased">Clientes que compraron</option>
                     <option value="not_qualified">Clientes que no calificaron</option>
                     <option value="unidentified">Clientes sin identificar</option>
+                    <option value="in_process_banking">En proceso bancario</option>
                   </select>
                 </label>
                 <label>
@@ -1201,6 +1208,7 @@ export default function AdminPage() {
                               <option value="purchased">Clientes que compraron</option>
                               <option value="not_qualified">Clientes que no calificaron</option>
                               <option value="unidentified">Clientes sin identificar</option>
+                              <option value="in_process_banking">En proceso bancario</option>
                             </select>
                           </td>
                           <td>

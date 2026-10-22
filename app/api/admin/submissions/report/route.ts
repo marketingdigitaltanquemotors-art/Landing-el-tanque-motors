@@ -20,6 +20,7 @@ const clientCategoryLabels = {
   purchased: "Cliente que compró",
   not_qualified: "Cliente que no calificó",
   unidentified: "Cliente sin identificar",
+  in_process_banking: "En proceso bancario",
 } as const;
 
 function formatDate(value: string) {
