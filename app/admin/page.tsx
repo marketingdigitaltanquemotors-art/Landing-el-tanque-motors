@@ -1140,6 +1140,7 @@ export default function AdminPage() {
                       <th>Inicial</th>
                       <th>Periodo</th>
                       <th>¿Vino?</th>
+                      <th>Mover cliente</th>
                       <th>Nueva fecha</th>
                       <th>Comentario</th>
                       <th>Guardar</th>
@@ -1181,9 +1182,27 @@ export default function AdminPage() {
                                   {isAdministrator ? "Pospuso" : "Pospuso (solo administrador)"}
                                 </option>
                               )}
-                              <option value="deleted">Cliente eliminado</option>
-                              <option value="purchased">Cliente que compró</option>
-                              <option value="not_qualified">No calificó</option>
+                            </select>
+                          </td>
+                          <td>
+                            <select
+                              value={archivedSubmissionStatuses.includes(draft.appointmentStatus)
+                                ? draft.appointmentStatus
+                                : "active"}
+                              onChange={(event) => {
+                                const destination = event.target.value as SubmissionSection;
+                                updateSubmissionDraft(submission, {
+                                  appointmentStatus:
+                                    destination === "active" ? "pending" : destination,
+                                });
+                              }}
+                              disabled={saving}
+                              aria-label={`Mover cliente ${submission.name}`}
+                            >
+                              <option value="active">Citas activas</option>
+                              <option value="deleted">Clientes eliminados</option>
+                              <option value="purchased">Clientes que compraron</option>
+                              <option value="not_qualified">Clientes que no calificaron</option>
                             </select>
                           </td>
                           <td>
@@ -1241,7 +1260,7 @@ export default function AdminPage() {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={currentUser?.role === "admin" ? 14 : 13} className="leads-empty">
+                        <td colSpan={currentUser?.role === "admin" ? 15 : 14} className="leads-empty">
                           Todavía no hay formularios que coincidan con ese filtro.
                         </td>
                       </tr>
