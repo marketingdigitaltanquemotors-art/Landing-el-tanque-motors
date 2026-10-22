@@ -21,6 +21,7 @@ const clientCategoryLabels = {
   not_qualified: "Cliente que no calificó",
   unidentified: "Cliente sin identificar",
   in_process_banking: "En proceso bancario",
+  banking_cancelled: "Clientes que cancelaron el proceso bancario",
 } as const;
 
 function formatDate(value: string) {

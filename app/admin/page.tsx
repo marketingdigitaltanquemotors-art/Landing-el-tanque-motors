@@ -49,7 +49,8 @@ type SubmissionSection =
   | "purchased"
   | "not_qualified"
   | "unidentified"
-  | "in_process_banking";
+  | "in_process_banking"
+  | "banking_cancelled";
 
 const primarySettingsFields: SettingsField[] = [
   { key: "heading", label: "Título principal de la página del vehículo" },
@@ -1097,6 +1098,7 @@ export default function AdminPage() {
                     <option value="not_qualified">Clientes que no calificaron</option>
                     <option value="unidentified">Clientes sin identificar</option>
                     <option value="in_process_banking">En proceso bancario</option>
+                    <option value="banking_cancelled">Clientes que cancelaron el proceso bancario</option>
                   </select>
                 </label>
                 <label>
@@ -1209,6 +1211,7 @@ export default function AdminPage() {
                               <option value="not_qualified">Clientes que no calificaron</option>
                               <option value="unidentified">Clientes sin identificar</option>
                               <option value="in_process_banking">En proceso bancario</option>
+                              <option value="banking_cancelled">Clientes que cancelaron el proceso bancario</option>
                             </select>
                           </td>
                           <td>

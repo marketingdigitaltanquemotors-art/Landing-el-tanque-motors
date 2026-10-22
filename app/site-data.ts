@@ -114,7 +114,8 @@ export type LeadSubmission = {
     | "purchased"
     | "not_qualified"
     | "unidentified"
-    | "in_process_banking";
+    | "in_process_banking"
+    | "banking_cancelled";
   rescheduledDate?: string;
   appointmentComment: string;
 };

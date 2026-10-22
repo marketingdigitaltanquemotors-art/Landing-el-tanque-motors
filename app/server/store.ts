@@ -851,7 +851,7 @@ export async function updateSubmissionStatus(
   if (!canReschedule && appointmentStatus === "rescheduled") {
     throw new Error("Solo un administrador puede reagendar una cita.");
   }
-  if (!["active", "deleted", "purchased", "not_qualified", "unidentified", "in_process_banking"].includes(clientCategory)) {
+  if (!["active", "deleted", "purchased", "not_qualified", "unidentified", "in_process_banking", "banking_cancelled"].includes(clientCategory)) {
     throw new Error("Categoría de cliente inválida.");
   }
   if (canReschedule && appointmentStatus === "rescheduled" && !normalizedDate) {
