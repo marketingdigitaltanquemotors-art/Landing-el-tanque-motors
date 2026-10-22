@@ -9,6 +9,9 @@ const statusLabels = {
   attended: "Si, vino",
   no_show: "No vino",
   rescheduled: "Pospuso",
+  deleted: "Cliente eliminado",
+  purchased: "Cliente que compró",
+  not_qualified: "No calificó",
 } as const;
 
 function formatDate(value: string) {

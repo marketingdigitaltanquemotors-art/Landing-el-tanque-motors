@@ -100,7 +100,14 @@ export type LeadSubmission = {
   initial: string;
   timeline: string;
   createdAt: string;
-  appointmentStatus: "pending" | "attended" | "no_show" | "rescheduled";
+  appointmentStatus:
+    | "pending"
+    | "attended"
+    | "no_show"
+    | "rescheduled"
+    | "deleted"
+    | "purchased"
+    | "not_qualified";
   rescheduledDate?: string;
   appointmentComment: string;
 };

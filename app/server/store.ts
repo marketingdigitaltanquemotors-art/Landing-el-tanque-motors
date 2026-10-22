@@ -817,7 +817,7 @@ export async function updateSubmissionStatus(
 ) {
   const submissionId = id.trim();
   if (!submissionId) throw new Error("Falta la cita a actualizar.");
-  if (!["pending", "attended", "no_show", "rescheduled"].includes(appointmentStatus)) {
+  if (!["pending", "attended", "no_show", "rescheduled", "deleted", "purchased", "not_qualified"].includes(appointmentStatus)) {
     throw new Error("Estado de cita inválido.");
   }
   const normalizedDate = String(rescheduledDate || "").trim();

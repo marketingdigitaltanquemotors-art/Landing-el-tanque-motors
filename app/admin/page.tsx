@@ -43,6 +43,14 @@ type UploadProgress = {
   percent: number;
 };
 
+type SubmissionSection = "active" | "deleted" | "purchased" | "not_qualified";
+
+const archivedSubmissionStatuses: LeadSubmission["appointmentStatus"][] = [
+  "deleted",
+  "purchased",
+  "not_qualified",
+];
+
 const primarySettingsFields: SettingsField[] = [
   { key: "heading", label: "Título principal de la página del vehículo" },
   { key: "announcement", label: "Barra superior" },
@@ -173,6 +181,7 @@ export default function AdminPage() {
   const [vehicleFilter, setVehicleFilter] = useState("todos");
   const [dateFilter, setDateFilter] = useState("");
   const [phoneFilter, setPhoneFilter] = useState("");
+  const [submissionSection, setSubmissionSection] = useState<SubmissionSection>("active");
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
   const [authConfigured, setAuthConfigured] = useState(true);
@@ -229,9 +238,13 @@ export default function AdminPage() {
       const normalizedPhoneFilter = phoneFilter.replace(/\D/g, "");
       const matchesPhone =
         !normalizedPhoneFilter || normalizedPhone.includes(normalizedPhoneFilter);
-      return matchesVehicle && matchesDate && matchesPhone;
+      const matchesSection =
+        submissionSection === "active"
+          ? !archivedSubmissionStatuses.includes(submission.appointmentStatus)
+          : submission.appointmentStatus === submissionSection;
+      return matchesVehicle && matchesDate && matchesPhone && matchesSection;
     });
-  }, [submissions, vehicleFilter, dateFilter, phoneFilter]);
+  }, [submissions, vehicleFilter, dateFilter, phoneFilter, submissionSection]);
 
   function formatSubmissionDate(value: string) {
     const [year, month, day] = value.split("-");
@@ -1066,6 +1079,20 @@ export default function AdminPage() {
 
               <div className="admin-form-grid leads-filters">
                 <label>
+                  Ventana de clientes
+                  <select
+                    value={submissionSection}
+                    onChange={(event) =>
+                      setSubmissionSection(event.target.value as SubmissionSection)
+                    }
+                  >
+                    <option value="active">Citas activas</option>
+                    <option value="deleted">Clientes eliminados</option>
+                    <option value="purchased">Clientes que compraron</option>
+                    <option value="not_qualified">Clientes que no calificaron</option>
+                  </select>
+                </label>
+                <label>
                   Filtrar por vehículo
                   <select
                     value={vehicleFilter}
@@ -1154,6 +1181,9 @@ export default function AdminPage() {
                                   {isAdministrator ? "Pospuso" : "Pospuso (solo administrador)"}
                                 </option>
                               )}
+                              <option value="deleted">Cliente eliminado</option>
+                              <option value="purchased">Cliente que compró</option>
+                              <option value="not_qualified">No calificó</option>
                             </select>
                           </td>
                           <td>
