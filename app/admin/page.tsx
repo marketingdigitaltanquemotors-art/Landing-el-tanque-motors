@@ -223,6 +223,7 @@ export default function AdminPage() {
   const selectedVehicle =
     vehicles.find((vehicle) => vehicle.id === selectedVehicleId) ?? vehicles[0];
   const isAdministrator = currentUser?.role === "admin";
+  const showDeleteAction = isAdministrator && submissionSection === "deleted";
 
   const filteredSubmissions = useMemo(() => {
     return submissions.filter((submission) => {
@@ -1142,7 +1143,7 @@ export default function AdminPage() {
                       <th>Nueva fecha</th>
                       <th>Comentario</th>
                       <th>Guardar</th>
-                      {currentUser?.role === "admin" && <th>Acción</th>}
+                      {showDeleteAction && <th>Acción</th>}
                     </tr>
                   </thead>
                   <tbody>
@@ -1244,7 +1245,7 @@ export default function AdminPage() {
                               Guardar
                             </button>
                           </td>
-                          {currentUser?.role === "admin" && <td>
+                          {showDeleteAction && <td>
                             <button className="admin-remove-submission" onClick={() => removeSubmission(submission.id)} disabled={saving}>
                               Eliminar
                             </button>
@@ -1255,7 +1256,7 @@ export default function AdminPage() {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={currentUser?.role === "admin" ? 15 : 14} className="leads-empty">
+                        <td colSpan={showDeleteAction ? 15 : 14} className="leads-empty">
                           Todavía no hay formularios que coincidan con ese filtro.
                         </td>
                       </tr>
