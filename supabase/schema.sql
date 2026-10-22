@@ -61,6 +61,18 @@ alter table public.lead_submissions
   add column if not exists rescheduled_date text;
 alter table public.lead_submissions
   add column if not exists appointment_comment text not null default '';
+alter table public.lead_submissions
+  add column if not exists client_category text not null default 'active'
+    check (client_category in ('active', 'deleted', 'purchased', 'not_qualified'));
+
+-- Separa los registros antiguos que usaban appointment_status para archivar clientes.
+update public.lead_submissions
+set client_category = appointment_status
+where appointment_status in ('deleted', 'purchased', 'not_qualified')
+  and client_category = 'active';
+update public.lead_submissions
+set appointment_status = 'pending'
+where appointment_status in ('deleted', 'purchased', 'not_qualified');
 
 create index if not exists idx_vehicle_media_vehicle
   on public.vehicle_media(vehicle_id, sort_order);

@@ -45,12 +45,6 @@ type UploadProgress = {
 
 type SubmissionSection = "active" | "deleted" | "purchased" | "not_qualified";
 
-const archivedSubmissionStatuses: LeadSubmission["appointmentStatus"][] = [
-  "deleted",
-  "purchased",
-  "not_qualified",
-];
-
 const primarySettingsFields: SettingsField[] = [
   { key: "heading", label: "Título principal de la página del vehículo" },
   { key: "announcement", label: "Barra superior" },
@@ -175,6 +169,7 @@ export default function AdminPage() {
   const [submissions, setSubmissions] = useState<LeadSubmission[]>([]);
   const [submissionDrafts, setSubmissionDrafts] = useState<Record<string, {
     appointmentStatus: LeadSubmission["appointmentStatus"];
+    clientCategory: LeadSubmission["clientCategory"];
     rescheduledDate: string;
     appointmentComment: string;
   }>>({});
@@ -240,8 +235,8 @@ export default function AdminPage() {
         !normalizedPhoneFilter || normalizedPhone.includes(normalizedPhoneFilter);
       const matchesSection =
         submissionSection === "active"
-          ? !archivedSubmissionStatuses.includes(submission.appointmentStatus)
-          : submission.appointmentStatus === submissionSection;
+          ? submission.clientCategory === "active"
+          : submission.clientCategory === submissionSection;
       return matchesVehicle && matchesDate && matchesPhone && matchesSection;
     });
   }, [submissions, vehicleFilter, dateFilter, phoneFilter, submissionSection]);
@@ -439,6 +434,7 @@ export default function AdminPage() {
   function getSubmissionDraft(submission: LeadSubmission) {
     return submissionDrafts[submission.id] ?? {
       appointmentStatus: submission.appointmentStatus || "pending",
+      clientCategory: submission.clientCategory || "active",
       rescheduledDate: submission.rescheduledDate || "",
       appointmentComment: submission.appointmentComment || "",
     };
@@ -448,6 +444,7 @@ export default function AdminPage() {
     submission: LeadSubmission,
     patch: Partial<{
       appointmentStatus: LeadSubmission["appointmentStatus"];
+      clientCategory: LeadSubmission["clientCategory"];
       rescheduledDate: string;
       appointmentComment: string;
     }>,
@@ -477,6 +474,7 @@ export default function AdminPage() {
           ? {
               ...item,
               appointmentStatus: draft.appointmentStatus,
+              clientCategory: draft.clientCategory,
               rescheduledDate:
                 draft.appointmentStatus === "rescheduled"
                   ? draft.rescheduledDate
@@ -1186,14 +1184,11 @@ export default function AdminPage() {
                           </td>
                           <td>
                             <select
-                              value={archivedSubmissionStatuses.includes(draft.appointmentStatus)
-                                ? draft.appointmentStatus
-                                : "active"}
+                              value={draft.clientCategory}
                               onChange={(event) => {
                                 const destination = event.target.value as SubmissionSection;
                                 updateSubmissionDraft(submission, {
-                                  appointmentStatus:
-                                    destination === "active" ? "pending" : destination,
+                                  clientCategory: destination,
                                 });
                               }}
                               disabled={saving}

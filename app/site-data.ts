@@ -108,6 +108,7 @@ export type LeadSubmission = {
     | "deleted"
     | "purchased"
     | "not_qualified";
+  clientCategory: "active" | "deleted" | "purchased" | "not_qualified";
   rescheduledDate?: string;
   appointmentComment: string;
 };

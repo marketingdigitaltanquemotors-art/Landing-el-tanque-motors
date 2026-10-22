@@ -34,6 +34,7 @@ export async function PATCH(
     const session = await getPanelSession(request);
     const input = (await request.json()) as {
       appointmentStatus?: string;
+      clientCategory?: string;
       rescheduledDate?: string;
       appointmentComment?: string;
     };
@@ -45,6 +46,7 @@ export async function PATCH(
       input.appointmentStatus as Parameters<typeof updateSubmissionStatus>[1],
       input.rescheduledDate,
       input.appointmentComment,
+      input.clientCategory as Parameters<typeof updateSubmissionStatus>[4],
       session?.role === "admin",
     );
     return jsonResponse({ ok: true });

@@ -14,6 +14,13 @@ const statusLabels = {
   not_qualified: "No calificó",
 } as const;
 
+const clientCategoryLabels = {
+  active: "Cita activa",
+  deleted: "Cliente eliminado",
+  purchased: "Cliente que compró",
+  not_qualified: "Cliente que no calificó",
+} as const;
+
 function formatDate(value: string) {
   const [year, month, day] = value.split("-");
   return year && month && day ? `${day}/${month}/${year}` : value;
@@ -63,6 +70,7 @@ export async function GET(request: Request) {
     addWrapped(lines, "Precio", String(submission.price));
     addWrapped(lines, "Cuota mensual", String(submission.monthly));
     addWrapped(lines, "Estado", statusLabels[submission.appointmentStatus] || submission.appointmentStatus);
+    addWrapped(lines, "Clasificacion", clientCategoryLabels[submission.clientCategory] || submission.clientCategory);
     if (submission.rescheduledDate) addWrapped(lines, "Nueva fecha", formatDate(submission.rescheduledDate));
     addWrapped(lines, "Comentario", submission.appointmentComment);
     lines.push("");

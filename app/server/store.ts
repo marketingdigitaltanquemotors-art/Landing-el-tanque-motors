@@ -61,6 +61,7 @@ type LeadRow = {
   timeline: string;
   created_at: string;
   appointment_status?: LeadSubmission["appointmentStatus"] | null;
+  client_category?: LeadSubmission["clientCategory"] | null;
   rescheduled_date?: string | null;
   appointment_comment?: string | null;
 };
@@ -705,8 +706,9 @@ export async function getMediaSignedUrl(key: string): Promise<string | null> {
 }
 
 export async function addSubmission(
-  input: Omit<LeadSubmission, "id" | "createdAt" | "appointmentStatus" | "rescheduledDate" | "appointmentComment"> & {
+  input: Omit<LeadSubmission, "id" | "createdAt" | "appointmentStatus" | "clientCategory" | "rescheduledDate" | "appointmentComment"> & {
     appointmentStatus?: LeadSubmission["appointmentStatus"];
+    clientCategory?: LeadSubmission["clientCategory"];
     rescheduledDate?: string;
     appointmentComment?: string;
   },
@@ -733,6 +735,7 @@ export async function addSubmission(
     timeline: input.timeline.trim(),
     createdAt: new Date().toISOString(),
     appointmentStatus: "pending",
+    clientCategory: "active",
     appointmentComment: String(input.appointmentComment || "").trim(),
   };
 
@@ -752,6 +755,7 @@ export async function addSubmission(
     initial: submission.initial,
     timeline: submission.timeline,
     appointment_status: submission.appointmentStatus,
+    client_category: submission.clientCategory,
     rescheduled_date: submission.rescheduledDate || null,
     appointment_comment: submission.appointmentComment,
     created_at: submission.createdAt,
@@ -764,10 +768,24 @@ export async function addSubmission(
 export async function listSubmissions() {
   try {
     await tryEnsureDefaults();
-    const { data, error } = await getSupabase()
+    const supabase = getSupabase();
+    const result = await supabase
       .from(SUBMISSIONS_TABLE)
-      .select("id,vehicle,year,price,down,months,monthly,date,time,name,gmail,phone,initial,timeline,appointment_status,rescheduled_date,appointment_comment,created_at")
+      .select("id,vehicle,year,price,down,months,monthly,date,time,name,gmail,phone,initial,timeline,appointment_status,client_category,rescheduled_date,appointment_comment,created_at")
       .order("created_at", { ascending: false });
+    let data = result.data as LeadRow[] | null;
+    let error = result.error;
+
+    // Permite que el panel siga mostrando las citas mientras se aplica la migración
+    // de client_category en instalaciones existentes de Supabase.
+    if (error && /client_category|column/i.test(error.message || "")) {
+      const fallback = await supabase
+        .from(SUBMISSIONS_TABLE)
+        .select("id,vehicle,year,price,down,months,monthly,date,time,name,gmail,phone,initial,timeline,appointment_status,rescheduled_date,appointment_comment,created_at")
+        .order("created_at", { ascending: false });
+      data = fallback.data as LeadRow[] | null;
+      error = fallback.error;
+    }
     requireNoError(error);
 
     return ((data || []) as LeadRow[]).map((row) => ({
@@ -787,6 +805,13 @@ export async function listSubmissions() {
       timeline: row.timeline,
       createdAt: row.created_at,
       appointmentStatus: row.appointment_status || "pending",
+      clientCategory:
+        row.client_category ||
+        (row.appointment_status === "deleted" ||
+        row.appointment_status === "purchased" ||
+        row.appointment_status === "not_qualified"
+          ? row.appointment_status
+          : "active"),
       rescheduledDate: row.rescheduled_date || undefined,
       appointmentComment: row.appointment_comment || "",
     }));
@@ -813,11 +838,12 @@ export async function updateSubmissionStatus(
   appointmentStatus: LeadSubmission["appointmentStatus"],
   rescheduledDate?: string,
   appointmentComment = "",
+  clientCategory: LeadSubmission["clientCategory"] = "active",
   canReschedule = true,
 ) {
   const submissionId = id.trim();
   if (!submissionId) throw new Error("Falta la cita a actualizar.");
-  if (!["pending", "attended", "no_show", "rescheduled", "deleted", "purchased", "not_qualified"].includes(appointmentStatus)) {
+  if (!["pending", "attended", "no_show", "rescheduled"].includes(appointmentStatus)) {
     throw new Error("Estado de cita inválido.");
   }
   const normalizedDate = String(rescheduledDate || "").trim();
@@ -825,21 +851,33 @@ export async function updateSubmissionStatus(
   if (!canReschedule && appointmentStatus === "rescheduled") {
     throw new Error("Solo un administrador puede reagendar una cita.");
   }
+  if (!["active", "deleted", "purchased", "not_qualified"].includes(clientCategory)) {
+    throw new Error("Categoría de cliente inválida.");
+  }
   if (canReschedule && appointmentStatus === "rescheduled" && !normalizedDate) {
     throw new Error("Selecciona la nueva fecha de la cita.");
   }
 
   await ensureDefaults();
-  const update = {
+  const baseUpdate = {
     appointment_status: appointmentStatus,
     appointment_comment: normalizedComment,
     ...(canReschedule
       ? { rescheduled_date: appointmentStatus === "rescheduled" ? normalizedDate : null }
       : {}),
   };
-  const { error } = await getSupabase()
+  const supabase = getSupabase();
+  const result = await supabase
     .from(SUBMISSIONS_TABLE)
-    .update(update)
+    .update({ ...baseUpdate, client_category: clientCategory })
     .eq("id", submissionId);
-  requireNoError(error);
+  if (result.error && /client_category|column/i.test(result.error.message || "")) {
+    const fallback = await supabase
+      .from(SUBMISSIONS_TABLE)
+      .update(baseUpdate)
+      .eq("id", submissionId);
+    requireNoError(fallback.error);
+    return;
+  }
+  requireNoError(result.error);
 }
