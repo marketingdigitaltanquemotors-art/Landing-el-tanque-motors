@@ -19,6 +19,7 @@ const clientCategoryLabels = {
   deleted: "Cliente eliminado",
   purchased: "Cliente que compró",
   not_qualified: "Cliente que no calificó",
+  unidentified: "Cliente sin identificar",
 } as const;
 
 function formatDate(value: string) {

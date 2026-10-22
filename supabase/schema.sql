@@ -63,7 +63,13 @@ alter table public.lead_submissions
   add column if not exists appointment_comment text not null default '';
 alter table public.lead_submissions
   add column if not exists client_category text not null default 'active'
-    check (client_category in ('active', 'deleted', 'purchased', 'not_qualified'));
+    check (client_category in ('active', 'deleted', 'purchased', 'not_qualified', 'unidentified'));
+
+alter table public.lead_submissions
+  drop constraint if exists lead_submissions_client_category_check;
+alter table public.lead_submissions
+  add constraint lead_submissions_client_category_check
+  check (client_category in ('active', 'deleted', 'purchased', 'not_qualified', 'unidentified'));
 
 -- Separa los registros antiguos que usaban appointment_status para archivar clientes.
 update public.lead_submissions
