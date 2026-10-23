@@ -9,14 +9,14 @@ const statusLabels = {
   attended: "Si, vino",
   no_show: "No vino",
   rescheduled: "Pospuso",
-  deleted: "Cliente eliminado",
+  deleted: "Cliente que no asistió a la cita",
   purchased: "Cliente que compró",
   not_qualified: "No calificó",
 } as const;
 
 const clientCategoryLabels = {
   active: "Cita activa",
-  deleted: "Cliente eliminado",
+  deleted: "Cliente que no asistió a la cita",
   purchased: "Cliente que compró",
   not_qualified: "Cliente que no calificó",
   unidentified: "Cliente sin identificar",

@@ -1093,7 +1093,7 @@ export default function AdminPage() {
                     }
                   >
                     <option value="active">Citas activas</option>
-                    <option value="deleted">Clientes eliminados</option>
+                    <option value="deleted">Clientes que no asistieron a la cita</option>
                     <option value="purchased">Clientes que compraron</option>
                     <option value="not_qualified">Clientes que no calificaron</option>
                     <option value="unidentified">Clientes sin identificar</option>
@@ -1206,7 +1206,7 @@ export default function AdminPage() {
                               aria-label={`Mover cliente ${submission.name}`}
                             >
                               <option value="active">Citas activas</option>
-                              <option value="deleted">Clientes eliminados</option>
+                              <option value="deleted">Clientes que no asistieron a la cita</option>
                               <option value="purchased">Clientes que compraron</option>
                               <option value="not_qualified">Clientes que no calificaron</option>
                               <option value="unidentified">Clientes sin identificar</option>
